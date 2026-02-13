@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>AutoGate - Controle de Veículos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- === ADICIONADO: Estilos para o indicador de rede === -->
+    <style>
+        #status-rede.online #bolinha-status {
+            color: #00cc44;  /* verde vivo - conectado */
+        }
+        #status-rede.offline #bolinha-status {
+            color: #ff3333;  /* vermelho - desconectado */
+        }
+        #status-rede {
+            font-weight: 500;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #data-hora-atual {
+            font-family: monospace;
+            font-weight: bold;
+            color: #ffffffcc;
+            white-space: nowrap;
+        }
+        /* Sidebar menu — negrito e fonte um pouco maior */
+        .col-md-2 .nav-link {
+            font-weight: 700;
+            font-size: 1.05rem;
+        }
+        /* Mais cor no sidebar */
+        .col-md-2.bg-light {
+            background-color: #e9f4ff !important; /* azul claro suave */
+            border-right: 1px solid #d6e6ff;
+        }
+        .col-md-2 h5 {
+            color: #000000; /* preto para o título */
+            font-weight: 700;
+        }
+        .col-md-2 .nav-link {
+            color: #000000; /* preto para os links */
+        }
+        .col-md-2 .nav-link:hover {
+            background-color: rgba(0,0,0,0.1);
+            color: #000000;
+            border-radius: 4px;
+        }
+        /* Rodapé fixo discreto */
+        #site-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #f5f6f7; /* cinza suave que combina com branco */
+            border-top: 1px solid #e0e0e0;
+            padding: 10px 0;
+            z-index: 1030;
+        }
+        #site-footer .footer-text {
+            color: #6b6f73; /* cinza escuro leve */
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+        /* Espaço inferior para evitar sobreposição do conteúdo */
+        body {
+            padding-bottom: 56px;
+            background-color: #ffffff;
+        }
+    </style>
+    <!-- Fim dos estilos adicionados -->
+</head>
+
+<body>
+
+<!-- HEADER -->
+<nav class="navbar navbar-dark bg-dark px-3">
+    <span class="navbar-brand mb-0 h1">🚗 AutoGate</span>
+    
+    <!--Indicador de rede-->
+    <div id="status-rede" class="text-white">
+        <span>Rede</span>
+        <span id="bolinha-status" style="font-size: 1.6rem; line-height: 1;">•</span>
+        <span id="data-hora-atual" class="ms-2"></span>
+    </div>
+    <!-- Fim do indicador -->
+</nav>
+
+<div class="container-fluid">
+    <div class="row">
+
+        <!-- SIDEBAR (sem alteração) -->
+        <div class="col-md-2 bg-light vh-100 p-3">
+            <h5>Menu</h5>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Entrada</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Saída</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Cadastros</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Relatórios</a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <div class="col-md-10 p-4">
+
+            <!-- CARDS DE RESUMO (sem alteração) -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-bg-success">
+                        <div class="card-body">
+                            <h6>No Pátio</h6>
+                            <h4>12</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card text-bg-danger">
+                        <div class="card-body">
+                            <h6>Saíram Hoje</h6>
+                            <h4>5</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card text-bg-warning">
+                        <div class="card-body">
+                            <h6>Pendentes</h6>
+                            <h4>2</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card text-bg-info">
+                        <div class="card-body">
+                            <h6>Visitantes</h6>
+                            <h4>3</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABELA -->
+            <div class="card">
+                <!-- === ALTERADO: Adicionada data e hora no header === -->
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Lista de Veículos</span>
+
+                </div>
+                <!-- Fim da alteração -->
+
+                <div class="card-body">
+                    <table class="table table-striped" id="tabela-veiculos">
+                        <thead>
+                            <tr>
+                                <th>Placa</th>
+                                <th>Responsável</th>
+                                <th>Entrada</th>
+                                <th>Status</th>
+                                <th>Pátio</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-veiculos">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">Carregando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- === ADICIONADO: Scripts no final do body === -->
+<script>
+    // 1. Status da Rede (verde = online, vermelho = offline)
+    const statusRede = document.getElementById('status-rede');
+    const bolinha = document.getElementById('bolinha-status');
+
+    function atualizarStatusRede() {
+        if (navigator.onLine) {
+            statusRede.classList.remove('offline');
+            statusRede.classList.add('online');
+        } else {
+            statusRede.classList.remove('online');
+            statusRede.classList.add('offline');
+        }
+    }
+
+    atualizarStatusRede();
+    window.addEventListener('online', atualizarStatusRede);
+    window.addEventListener('offline', atualizarStatusRede);
+
+    // Verificação mais confiável (ping simples a cada 10s)
+    setInterval(() => {
+        fetch('https://www.google.com/favicon.ico', { mode: 'no-cors', cache: 'no-store' })
+            .then(() => atualizarStatusRede())
+            .catch(() => atualizarStatusRede());
+    }, 10000);
+
+    // 2. Data e hora no navbar (atualiza a cada segundo)
+    const dataHoraEl = document.getElementById('data-hora-atual');
+    function atualizarDataHora() {
+        const now = new Date();
+        const data = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const hora = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        if (dataHoraEl) dataHoraEl.textContent = `${data} ${hora}`;
+    }
+    atualizarDataHora();
+    setInterval(atualizarDataHora, 1000);
+
+    // 3. Buscar veículos da API e atualizar tabela
+    async function carregarVeiculos() {
+        try {
+            console.log('Carregando veículos...');
+            const response = await fetch('http://localhost:8000/veiculos');
+            
+            if (!response.ok) {
+                throw new Error(`Erro HTTP: ${response.status}`);
+            }
+            
+            const veiculos = await response.json();
+            console.log('Veículos recebidos:', veiculos);
+            
+            const tbody = document.getElementById('tbody-veiculos');
+            if (!tbody) {
+                console.error('Elemento tbody não encontrado!');
+                return;
+            }
+            
+            tbody.innerHTML = ''; // Limpar tabela
+            
+            if (!Array.isArray(veiculos) || veiculos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum veículo no estacionamento</td></tr>';
+            } else {
+                veiculos.forEach(veiculo => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${veiculo.placa || '-'}</td>
+                        <td>-</td>
+                        <td>${veiculo.entrada || '-'}</td>
+                        <td><span class="badge bg-success">No Pátio</span></td>
+                        <td>Principal</td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" onclick="registrarSaida('${veiculo.placa}')">Dar Saída</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+            
+            // Atualizar card "No Pátio"
+            const cards = document.querySelectorAll('.card.text-bg-success h4');
+            if (cards.length > 0) {
+                cards[0].textContent = Array.isArray(veiculos) ? veiculos.length : 0;
+            }
+            
+        } catch (error) {
+            console.error('Erro ao carregar veículos:', error);
+            const tbody = document.getElementById('tbody-veiculos');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">❌ Erro ao conectar com a API: ' + error.message + '</td></tr>';
+            }
+        }
+    }
+
+    // 4. Registrar saída de veículo
+    async function registrarSaida(placa) {
+        try {
+            console.log('Registrando saída:', placa);
+            const response = await fetch(`http://localhost:8000/saida?placa=${placa}`, { method: 'POST' });
+            const resultado = await response.json();
+            
+            console.log('Resultado saída:', resultado);
+            
+            if (resultado.status) {
+                alert(`Saída registrada para ${placa}`);
+                carregarVeiculos(); // Recarregar tabela
+            } else {
+                alert(`Erro: ${resultado.erro}`);
+            }
+        } catch (error) {
+            console.error('Erro ao registrar saída:', error);
+            alert('Erro ao registrar saída');
+        }
+    }
+
+    // Carregar veículos ao iniciar a página
+    window.addEventListener('load', () => {
+        console.log('Página carregada, iniciando carregamento de veículos');
+        carregarVeiculos();
+    });
+
+    // Atualizar veículos a cada 5 segundos
+    setInterval(carregarVeiculos, 5000);
+</script>
+<!-- Fim dos scripts -->
+
+
+<!-- Rodapé fixo -->
+<footer id="site-footer">
+    <div class="container-fluid text-start px-0">
+        <span class="footer-text">Desenvolvido por CisNet Tech</span>
+    </div>
+</footer>
+
+</body>
+</html>
