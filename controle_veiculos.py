@@ -4,14 +4,20 @@ import csv
 import os
 from datetime import datetime
 
-# Conexao com o banco de dados
-conn = sqlite3.connect("estacionamento.db")
-cursor = conn.cursor()
 
-# criar tabela (colunas adicionais para responsável e CPF podem ser adicionadas depois)
-cursor.execute("""CREATE TABLE IF NOT EXISTS movimentacoes ( id INTEGER PRIMARY KEY AUTOINCREMENT,
-               placa TEXT NOT NULL, tipo TEXT NOT NULL, entrada TEXT NOT NULL, saida TEXT)""")
-conn.commit()
+def get_db_connection():
+    """Cria e retorna uma nova conexão com o banco de dados."""
+    return sqlite3.connect("estacionamento.db", timeout=10)
+
+
+def setup_database():
+    """Garante que a tabela e as colunas necessárias existam para o script de terminal."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""CREATE TABLE IF NOT EXISTS movimentacoes ( id INTEGER PRIMARY KEY AUTOINCREMENT,
+                       placa TEXT NOT NULL, tipo TEXT NOT NULL, entrada TEXT NOT NULL, saida TEXT)""")
+        ensure_columns(cursor)
+        conn.commit()
 
 
 def registrar_responsavel():
@@ -21,25 +27,22 @@ def registrar_responsavel():
         print("Placa inválida!")
         return
 
-    cursor.execute("""
-        SELECT 1 FROM movimentacoes
-        WHERE placa = ? AND saida IS NULL
-    """, (placa,))
-    if not cursor.fetchone():
-        print("Veículo não encontrado ou já saiu.")
-        return
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT 1 FROM movimentacoes WHERE placa = ? AND saida IS NULL", (placa,))
+        if not cursor.fetchone():
+            print("Veículo não encontrado ou já saiu.")
+            return
 
-    responsavel = input("Nome do responsável: ").strip()
-    if not responsavel:
-        print("Nome do responsável é obrigatório.")
-        return
+        responsavel = input("Nome do responsável: ").strip()
+        if not responsavel:
+            print("Nome do responsável é obrigatório.")
+            return
 
-    cursor.execute("""
-        UPDATE movimentacoes
-        SET responsavel = ?
-        WHERE placa = ? AND saida IS NULL
-    """, (responsavel, placa))
-    conn.commit()
+        cursor.execute(
+            "UPDATE movimentacoes SET responsavel = ? WHERE placa = ? AND saida IS NULL", (responsavel, placa))
+        conn.commit()
     print("Responsável registrado com sucesso!")
 
 
@@ -50,29 +53,26 @@ def registrar_cpf():
         print("Placa inválida!")
         return
 
-    cursor.execute("""
-        SELECT 1 FROM movimentacoes
-        WHERE placa = ? AND saida IS NULL
-    """, (placa,))
-    if not cursor.fetchone():
-        print("Veículo não encontrado ou já saiu.")
-        return
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT 1 FROM movimentacoes WHERE placa = ? AND saida IS NULL", (placa,))
+        if not cursor.fetchone():
+            print("Veículo não encontrado ou já saiu.")
+            return
 
-    cpf = input("CPF do responsável: ").strip()
-    if not cpf:
-        print("CPF do responsável é obrigatório.")
-        return
+        cpf = input("CPF do responsável: ").strip()
+        if not cpf:
+            print("CPF do responsável é obrigatório.")
+            return
 
-    cursor.execute("""
-        UPDATE movimentacoes
-        SET cpf_responsavel = ?
-        WHERE placa = ? AND saida IS NULL
-    """, (cpf, placa))
-    conn.commit()
+        cursor.execute(
+            "UPDATE movimentacoes SET cpf_responsavel = ? WHERE placa = ? AND saida IS NULL", (cpf, placa))
+        conn.commit()
     print("CPF registrado com sucesso!")
 
 
-def ensure_columns():
+def ensure_columns(cursor):
     # Garante que as colunas responsavel e cpf_responsavel existam
     cursor.execute("PRAGMA table_info(movimentacoes)")
     cols = [r[1] for r in cursor.fetchall()]
@@ -81,10 +81,6 @@ def ensure_columns():
     if 'cpf_responsavel' not in cols:
         cursor.execute(
             "ALTER TABLE movimentacoes ADD COLUMN cpf_responsavel TEXT")
-    conn.commit()
-
-
-ensure_columns()
 
 # normalizacao da placa
 
@@ -116,89 +112,90 @@ def registrar_entrada():
         print("Placa invalida! Ex: ABC1234 OU ABC1D23")
         return
 
-    # verificacao se o carro está no pátio
-    cursor.execute("""
-                   SELECT 1 FROM movimentacoes WHERE placa = ?
-                   AND saida IS NULL""", (placa,))
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        # verificacao se o carro está no pátio
+        cursor.execute(
+            "SELECT 1 FROM movimentacoes WHERE placa = ? AND saida IS NULL", (placa,))
 
-    if cursor.fetchone():
-        print("Veiculo já está no estacionamento!")
-        return
+        if cursor.fetchone():
+            print("Veiculo já está no estacionamento!")
+            return
 
-    tipo = input("Tipo do veiculo: ")
-    # tornar nome do responsável obrigatório e validar formato (apenas letras/espacos)
+        tipo = input("Tipo do veiculo: ")
+        # tornar nome do responsável obrigatório e validar formato (apenas letras/espacos)
 
-    def validar_nome(nome):
-        nome = nome.strip()
-        if len(nome) < 2:
-            return False
-        for ch in nome:
-            if not (ch.isalpha() or ch.isspace()):
+        def validar_nome(nome):
+            nome = nome.strip()
+            if len(nome) < 2:
                 return False
-        return True
+            for ch in nome:
+                if not (ch.isalpha() or ch.isspace()):
+                    return False
+            return True
 
-    while True:
-        responsavel = input("Nome do responsável: ").strip()
-        if not responsavel:
-            print("Nome do responsável é obrigatório. Tente novamente.")
-            continue
-        if not validar_nome(responsavel):
-            print("Nome inválido. Use apenas letras e espaços. Tente novamente.")
-            continue
-        break
+        while True:
+            responsavel = input("Nome do responsável: ").strip()
+            if not responsavel:
+                print("Nome do responsável é obrigatório. Tente novamente.")
+                continue
+            if not validar_nome(responsavel):
+                print("Nome inválido. Use apenas letras e espaços. Tente novamente.")
+                continue
+            break
 
-    # Remover sufixos/prefixos comuns (Sr., Sra., Dr., Dra., Srta., Senhor(a), Dona)
-    honorifics = {
-        'sr', 'sra', 'sr.', 'sra.', 'dr', 'dra', 'dr.', 'dra.', 'srta', 'srta.',
-        'senhor', 'senhora', 'dona', 'don', 'mr', 'mrs', 'sra(a)'
-    }
-    parts = [p.strip('.,') for p in responsavel.split() if p.strip()]
-    filtered = [p for p in parts if p.lower().replace(
-        '.', '').replace('(', '').replace(')', '') not in honorifics]
-    # Normalizar nome: salvar em Title Case (cada palavra com inicial maiúscula)
-    responsavel = ' '.join(w.capitalize() for w in filtered)
+        # Remover sufixos/prefixos comuns (Sr., Sra., Dr., Dra., Srta., Senhor(a), Dona)
+        honorifics = {
+            'sr', 'sra', 'sr.', 'sra.', 'dr', 'dra', 'dr.', 'dra.', 'srta', 'srta.',
+            'senhor', 'senhora', 'dona', 'don', 'mr', 'mrs', 'sra(a)'
+        }
+        parts = [p.strip('.,') for p in responsavel.split() if p.strip()]
+        filtered = [p for p in parts if p.lower().replace(
+            '.', '').replace('(', '').replace(')', '') not in honorifics]
+        # Normalizar nome: salvar em Title Case (cada palavra com inicial maiúscula)
+        responsavel = ' '.join(w.capitalize() for w in filtered)
 
-    # CPF obrigatório com validação básica
-    def validar_cpf(cpf):
-        cpf = re.sub(r'\D', '', cpf)
-        if len(cpf) != 11:
-            return False
-        if cpf == cpf[0] * 11:
-            return False
+        # CPF obrigatório com validação básica
+        def validar_cpf(cpf):
+            cpf = re.sub(r'\D', '', cpf)
+            if len(cpf) != 11:
+                return False
+            if cpf == cpf[0] * 11:
+                return False
 
-        def calc(digs):
-            s = 0
-            peso = len(digs) + 1
-            for d in digs:
-                s += int(d) * peso
-                peso -= 1
-            r = s % 11
-            return '0' if r < 2 else str(11 - r)
+            def calc(digs):
+                s = 0
+                peso = len(digs) + 1
+                for d in digs:
+                    s += int(d) * peso
+                    peso -= 1
+                r = s % 11
+                return '0' if r < 2 else str(11 - r)
 
-        d1 = calc(cpf[:9])
-        d2 = calc(cpf[:10])
-        return cpf[9] == d1 and cpf[10] == d2
+            d1 = calc(cpf[:9])
+            d2 = calc(cpf[:10])
+            return cpf[9] == d1 and cpf[10] == d2
 
-    while True:
-        cpf_responsavel = input(
-            "CPF do responsável (apenas números): ").strip()
-        if not cpf_responsavel:
-            print("CPF é obrigatório. Tente novamente.")
-            continue
-        cpf_digits = re.sub(r'\D', '', cpf_responsavel)
-        if not validar_cpf(cpf_digits):
-            print("CPF inválido. Digite um CPF válido com 11 dígitos.")
-            continue
-        cpf_responsavel = cpf_digits
-        break
-    entrada = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+        while True:
+            cpf_responsavel = input(
+                "CPF do responsável (apenas números): ").strip()
+            if not cpf_responsavel:
+                print("CPF é obrigatório. Tente novamente.")
+                continue
+            cpf_digits = re.sub(r'\D', '', cpf_responsavel)
+            if not validar_cpf(cpf_digits):
+                print("CPF inválido. Digite um CPF válido com 11 dígitos.")
+                continue
+            cpf_responsavel = cpf_digits
+            break
+        entrada = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
-    cursor.execute("""
-                   INSERT INTO movimentacoes (placa, tipo, entrada, responsavel, cpf_responsavel)
-                   VALUES (?, ?, ?, ?, ?)
-                   """, (placa, tipo, entrada, responsavel or None, cpf_responsavel or None))
+        cursor.execute("""
+                       INSERT INTO movimentacoes (placa, tipo, entrada, responsavel, cpf_responsavel)
+                       VALUES (?, ?, ?, ?, ?)
+                       """, (placa, tipo, entrada, responsavel or None, cpf_responsavel or None))
 
-    conn.commit()
+        conn.commit()
     print("Entrada do veículo registrada com sucesso!")
 
 # registro de saida
@@ -213,22 +210,24 @@ def registrar_saida():
 
     saida = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
-    cursor.execute("""UPDATE movimentacoes
-                   SET saida = ?
-                   WHERE placa = ? AND saida IS NULL""",
-                   (saida, placa))
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE movimentacoes SET saida = ? WHERE placa = ? AND saida IS NULL", (saida, placa))
 
-    if cursor.rowcount == 0:
-        print("Veiculo não encontrado ou já saiu.")
-    else:
-        conn.commit()
-        print("Saída de veículo, registrada com sucesso!")
+        if cursor.rowcount == 0:
+            print("Veiculo não encontrado ou já saiu.")
+        else:
+            conn.commit()
+            print("Saída de veículo, registrada com sucesso!")
 
 
 def listar_veiculos_dentro():
-    cursor.execute("""SELECT placa, tipo, entrada, responsavel, cpf_responsavel FROM movimentacoes
-                   WHERE saida IS NULL""")
-    veiculos = cursor.fetchall()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""SELECT placa, tipo, entrada, responsavel, cpf_responsavel FROM movimentacoes
+                       WHERE saida IS NULL""")
+        veiculos = cursor.fetchall()
 
     if not veiculos:
         print("Nenhum veiculo no estacionamento.")
@@ -258,13 +257,15 @@ def relatório(tipo):
         print("Tipo de relatório inválido")
         return
 
-    cursor.execute("""
-        SELECT placa, tipo, entrada, saida, responsavel, cpf_responsavel
-        FROM movimentacoes
-        WHERE entrada LIKE ?
-        """, (like,))
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT placa, tipo, entrada, saida, responsavel, cpf_responsavel
+            FROM movimentacoes
+            WHERE entrada LIKE ?
+            """, (like,))
 
-    registros = cursor.fetchall()
+        registros = cursor.fetchall()
 
     print(f"\n{titulo}")
 
@@ -299,13 +300,15 @@ def exportar_relatório(tipo):
 
     caminho = os.path.join(pasta_projeto, nome_arquivo)
 
-    cursor.execute("""
-        SELECT placa, tipo, entrada, saida, responsavel, cpf_responsavel
-        FROM movimentacoes
-        WHERE entrada LIKE ?
-    """, (like,))
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT placa, tipo, entrada, saida, responsavel, cpf_responsavel
+            FROM movimentacoes
+            WHERE entrada LIKE ?
+        """, (like,))
 
-    registros = cursor.fetchall()
+        registros = cursor.fetchall()
 
     if not registros:
         print("Nenhum dado para exportar.")
@@ -321,6 +324,7 @@ def exportar_relatório(tipo):
 
 
 def menu():
+    setup_database()  # Garante que o banco de dados está pronto
     while True:
         print("""
             ====== CONTROLE DE VEICULOS ======
@@ -364,5 +368,5 @@ def menu():
             print("Opcão inválida!")
 
 
-menu()
-conn.close()
+if __name__ == "__main__":
+    menu()

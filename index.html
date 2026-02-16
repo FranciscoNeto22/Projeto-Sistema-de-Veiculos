@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <title>AutoGate - Controle de Veículos</title>
@@ -11,11 +12,15 @@
     <!-- === ADICIONADO: Estilos para o indicador de rede === -->
     <style>
         #status-rede.online #bolinha-status {
-            color: #00cc44;  /* verde vivo - conectado */
+            color: #00cc44;
+            /* verde vivo - conectado */
         }
+
         #status-rede.offline #bolinha-status {
-            color: #ff3333;  /* vermelho - desconectado */
+            color: #ff3333;
+            /* vermelho - desconectado */
         }
+
         #status-rede {
             font-weight: 500;
             font-size: 1.2rem;
@@ -23,270 +28,621 @@
             align-items: center;
             gap: 8px;
         }
+
         #data-hora-atual {
             font-family: monospace;
             font-weight: bold;
             color: #ffffffcc;
             white-space: nowrap;
         }
+
         /* Sidebar menu — negrito e fonte um pouco maior */
         .col-md-2 .nav-link {
             font-weight: 700;
             font-size: 1.05rem;
         }
+
         /* Mais cor no sidebar */
         .col-md-2.bg-light {
-            background-color: #e9f4ff !important; /* azul claro suave */
+            background-color: #e9f4ff !important;
+            /* azul claro suave */
             border-right: 1px solid #d6e6ff;
         }
+
         .col-md-2 h5 {
-            color: #000000; /* preto para o título */
+            color: #000000;
+            /* preto para o título */
             font-weight: 700;
         }
+
         .col-md-2 .nav-link {
-            color: #000000; /* preto para os links */
+            color: #000000;
+            /* preto para os links */
         }
+
         .col-md-2 .nav-link:hover {
-            background-color: rgba(0,0,0,0.1);
+            background-color: rgba(0, 0, 0, 0.1);
             color: #000000;
             border-radius: 4px;
         }
+
         /* Rodapé fixo discreto */
         #site-footer {
             position: fixed;
             bottom: 0;
             left: 0;
             width: 100%;
-            background-color: #f5f6f7; /* cinza suave que combina com branco */
+            background-color: #f5f6f7;
+            /* cinza suave que combina com branco */
             border-top: 1px solid #e0e0e0;
             padding: 10px 0;
             z-index: 1030;
         }
+
         #site-footer .footer-text {
-            color: #6b6f73; /* cinza escuro leve */
+            color: #6b6f73;
+            /* cinza escuro leve */
             font-size: 0.9rem;
             font-weight: 700;
         }
+
         /* Espaço inferior para evitar sobreposição do conteúdo */
         body {
             padding-bottom: 56px;
             background-color: #ffffff;
         }
+
+        /* --- Estilos do Chat --- */
+        #chat-widget {
+            position: fixed;
+            bottom: 60px;
+            /* Acima do footer */
+            right: 20px;
+            z-index: 1040;
+            width: 300px;
+            display: none;
+            /* Oculto por padrão */
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+            border: 1px solid #ccc;
+        }
+
+        #chat-header {
+            background: #0d6efd;
+            color: white;
+            padding: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #chat-body {
+            height: 250px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f8f9fa;
+            font-size: 0.9rem;
+        }
+
+        #chat-footer {
+            padding: 10px;
+            border-top: 1px solid #eee;
+            background: white;
+        }
+
+        #chat-body {
+            display: flex;
+            flex-direction: column;
+            height: 250px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f8f9fa;
+            font-size: 0.9rem;
+        }
+
+        /* --- Editor de Layout (Apenas DEV) --- */
+        #layout-editor {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            width: 400px;
+            background: #212529;
+            color: #fff;
+            z-index: 1050;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            display: none;
+            /* Oculto por padrão */
+            flex-direction: column;
+        }
+
+        #layout-editor-header {
+            padding: 10px;
+            background: #000;
+            border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+        }
+
+        #css-input {
+            width: 100%;
+            height: 300px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border: none;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+
+        /* --- Menu de Contexto (Clique Direito) --- */
+        #context-menu {
+            display: none;
+            position: absolute;
+            z-index: 2000;
+            background: #fff;
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            width: 200px;
+        }
+
+        #context-menu button {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        #context-menu button:hover {
+            background-color: #f0f0f0;
+        }
+
+        /* Borda de seleção no modo edição */
+        .editable-hover {
+            outline: 2px dashed #ffc107;
+            cursor: context-menu;
+        }
+
+        /* --- Estilos para Chat Alinhado --- */
+        .chat-message {
+            padding: 8px 12px;
+            border-radius: 18px;
+            margin-bottom: 2px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .message-left {
+            background-color: #e9e9eb;
+            color: #000;
+            align-self: flex-start;
+        }
+
+        .message-right {
+            background-color: #0d6efd;
+            color: #fff;
+            align-self: flex-end;
+        }
+
+        .message-meta {
+            font-size: 0.7rem;
+            color: #6c757d;
+        }
     </style>
     <!-- Fim dos estilos adicionados -->
+    <!-- Local onde o CSS personalizado será injetado -->
+    <style id="dynamic-styles"></style>
 </head>
 
 <body>
 
-<!-- HEADER -->
-<nav class="navbar navbar-dark bg-dark px-3">
-    <button class="btn btn-outline-light d-md-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu" aria-label="Abrir menu">☰</button>
-    <span class="navbar-brand mb-0 h1">🚗 AutoGate</span>
-    
-    <!--Indicador de rede-->
-    <div id="status-rede" class="text-white">
-        <span>Rede</span>
-        <span id="bolinha-status" style="font-size: 1.6rem; line-height: 1;">•</span>
-        <span id="data-hora-atual" class="ms-2"></span>
-    </div>
-    <!-- Fim do indicador -->
-</nav>
+    <!-- HEADER -->
+    <nav class="navbar navbar-dark bg-dark px-3">
+        <button class="btn btn-outline-light d-md-none me-2" type="button" data-bs-toggle="offcanvas"
+            data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu" aria-label="Abrir menu">☰</button>
+        <span class="navbar-brand mb-0 h1">🚗 AutoGate</span>
 
-<div class="container-fluid">
-    <div class="row">
-
-        <!-- SIDEBAR (visível em md+, para telas pequenas usamos offcanvas) -->
-        <div class="col-md-2 bg-light vh-100 p-3 d-none d-md-block">
-            <h5>Menu</h5>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link" href="#">Dashboard</a>
-                </li>
-                <li class="nav-item">
-                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#entradaModal">Entrada</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#">Saída</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#">Cadastros</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#">Relatórios</a>
-                </li>
-            </ul>
+        <!--Indicador de rede-->
+        <div id="status-rede" class="text-white">
+            <span>Rede</span>
+            <span id="bolinha-status" style="font-size: 1.6rem; line-height: 1;">•</span>
+            <span id="data-hora-atual" class="ms-2"></span>
         </div>
+        <!-- Fim do indicador -->
+    </nav>
 
-        <!-- Offcanvas para telas pequenas -->
-        <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel">
-            <div class="offcanvas-header">
-                <h5 class="offcanvas-title" id="offcanvasMenuLabel">Menu</h5>
-                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
-            </div>
-            <div class="offcanvas-body">
+    <div class="container-fluid">
+        <div class="row">
+
+            <!-- SIDEBAR (visível em md+, para telas pequenas usamos offcanvas) -->
+            <div class="col-md-2 bg-light vh-100 p-3 d-none d-md-block">
+                <h5>Menu</h5>
                 <ul class="nav flex-column">
                     <li class="nav-item">
                         <a class="nav-link" href="#">Dashboard</a>
                     </li>
                     <li class="nav-item">
-                            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#entradaModal">Entrada</a>
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#entradaModal">Entrada</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Saída</a>
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#saidaModal">Saída</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Cadastros</a>
+                        <a class="nav-link" href="#" data-bs-toggle="modal"
+                            data-bs-target="#cadastroModal">Cadastros</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal"
+                            data-bs-target="#consultaCadastroModal">Consultar Cadastros</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#">Relatórios</a>
                     </li>
+                    <li class="nav-item d-none" id="menu-usuarios">
+                        <a class="nav-link text-primary" href="#" data-bs-toggle="modal"
+                            data-bs-target="#usuariosModal">👥 Gestão de Usuários</a>
+                    </li>
+                    <li class="nav-item d-none" id="menu-dev">
+                        <div class="nav-link text-warning" onclick="toggleVisualMode()">🎨 Edição Visual</div>
+                    </li>
+                    <li class="nav-item d-none" id="menu-dev-protocolos">
+                        <div class="nav-link text-info" data-bs-toggle="modal" data-bs-target="#protocolosModal">💬
+                            Protocolos Suporte</div>
+                    </li>
+                    <li class="nav-item d-none" id="menu-dev-update">
+                        <div class="nav-link text-success" data-bs-toggle="modal" data-bs-target="#publishUpdateModal">
+                            🚀 Publicar Update</div>
+                    </li>
+                    <li class="nav-item mt-4">
+                        <a class="nav-link text-danger" href="/logout">Sair</a>
+                    </li>
                 </ul>
             </div>
-        </div>
 
-        <!-- CONTEÚDO PRINCIPAL -->
-        <div class="col-md-10 p-4">
-
-            <!-- CARDS DE RESUMO (sem alteração) -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card text-bg-success">
-                        <div class="card-body">
-                            <h6>No Pátio</h6>
-                            <h4>12</h4>
-                        </div>
-                    </div>
+            <!-- Offcanvas para telas pequenas -->
+            <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasMenu"
+                aria-labelledby="offcanvasMenuLabel">
+                <div class="offcanvas-header">
+                    <h5 class="offcanvas-title" id="offcanvasMenuLabel">Menu</h5>
+                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"
+                        aria-label="Fechar"></button>
                 </div>
-
-                <div class="col-md-3">
-                    <div class="card text-bg-danger">
-                        <div class="card-body">
-                            <h6>Saíram Hoje</h6>
-                            <h4>5</h4>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="card text-bg-warning">
-                        <div class="card-body">
-                            <h6>Pendentes</h6>
-                            <h4>2</h4>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <div class="card text-bg-info">
-                        <div class="card-body">
-                            <h6>Visitantes</h6>
-                            <h4>3</h4>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TABELA -->
-            <div class="card">
-                <!-- === ALTERADO: Adicionada data e hora no header === -->
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>Lista de Veículos</span>
-
-                </div>
-                <!-- Fim da alteração -->
-
-                <div class="card-body">
-                    <table class="table table-striped" id="tabela-veiculos">
-                        <thead>
-                            <tr>
-                                <th>Placa</th>
-                                <th>Responsável</th>
-                                <th>Entrada</th>
-                                <th>Status</th>
-                                <th>Pátio</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-veiculos">
-                            <tr>
-                                <td colspan="6" class="text-center text-muted">Carregando...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="offcanvas-body">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-bs-toggle="modal"
+                                data-bs-target="#entradaModal">Entrada</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#saidaModal">Saída</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-bs-toggle="modal"
+                                data-bs-target="#cadastroModal">Cadastros</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-bs-toggle="modal"
+                                data-bs-target="#consultaCadastroModal">Consultar Cadastros</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">Relatórios</a>
+                        </li>
+                        <li class="nav-item d-none" id="menu-usuarios-mobile">
+                            <a class="nav-link text-primary" href="#" data-bs-toggle="modal"
+                                data-bs-target="#usuariosModal">👥 Gestão de Usuários</a>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-mobile">
+                            <div class="nav-link text-warning" onclick="toggleVisualMode()">🎨 Edição Visual</div>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-protocolos-mobile">
+                            <div class="nav-link text-info" data-bs-toggle="modal" data-bs-target="#protocolosModal">💬
+                                Protocolos</div>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-update-mobile">
+                            <div class="nav-link text-success" data-bs-toggle="modal"
+                                data-bs-target="#publishUpdateModal">🚀 Update</div>
+                        </li>
+                        <li class="nav-item mt-4">
+                            <a class="nav-link text-danger" href="/logout">Sair</a>
+                        </li>
+                    </ul>
                 </div>
             </div>
 
+            <!-- CONTEÚDO PRINCIPAL -->
+            <div class="col-md-10 p-4">
+
+                <!-- CARDS DE RESUMO (sem alteração) -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-bg-success">
+                            <div class="card-body">
+                                <h6>No Pátio</h6>
+                                <h4>12</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card text-bg-danger">
+                            <div class="card-body">
+                                <h6>Saíram Hoje</h6>
+                                <h4>5</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card text-bg-warning">
+                            <div class="card-body">
+                                <h6>Pendentes</h6>
+                                <h4>2</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card text-bg-info">
+                            <div class="card-body">
+                                <h6>Visitantes</h6>
+                                <h4>3</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABELA -->
+                <div class="card">
+                    <!-- === ALTERADO: Adicionada data e hora no header === -->
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Lista de Veículos</span>
+
+                    </div>
+                    <!-- Fim da alteração -->
+
+                    <div class="card-body">
+                        <table class="table table-striped" id="tabela-veiculos">
+                            <thead>
+                                <tr>
+                                    <th>Placa</th>
+                                    <th>Responsável</th>
+                                    <th>Entrada</th>
+                                    <th>Status</th>
+                                    <th>Pátio</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-veiculos">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">Carregando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
-</div>
 
-<!-- === ADICIONADO: Scripts no final do body === -->
-<script>
-    // 1. Status da Rede (verde = online, vermelho = offline)
-    const statusRede = document.getElementById('status-rede');
-    const bolinha = document.getElementById('bolinha-status');
+    <!-- MENU DE CONTEXTO (Visual Editor) -->
+    <div id="context-menu">
+        <div class="p-2 bg-dark text-white small fw-bold text-center">Editar Elemento</div>
+        <button onclick="editarTextoElemento()">✏️ Editar Texto</button>
+        <button onclick="mudarCorFundo()">🎨 Cor de Fundo</button>
+        <button onclick="mudarCorTexto()">🔤 Cor do Texto</button>
+        <button onclick="aumentarLargura()">↔️ Aumentar Largura</button>
+        <button onclick="diminuirLargura()">-><- Diminuir Largura</button>
+                <hr class="m-0">
+                <button onclick="toggleLayoutEditor()" class="text-primary">💻 Abrir Editor CSS</button>
+    </div>
 
-    function atualizarStatusRede() {
-        if (navigator.onLine) {
-            statusRede.classList.remove('offline');
-            statusRede.classList.add('online');
-        } else {
-            statusRede.classList.remove('online');
-            statusRede.classList.add('offline');
-        }
-    }
+    <!-- EDITOR DE LAYOUT (Apenas DEV) -->
+    <div id="layout-editor">
+        <div id="layout-editor-header">
+            <strong>🎨 Editor de Layout (CSS)</strong>
+            <button class="btn btn-sm btn-close btn-close-white" onclick="toggleLayoutEditor()"></button>
+        </div>
+        <div class="p-2 bg-secondary text-white small">
+            Escreva CSS aqui para alterar o site inteiro.
+        </div>
+        <textarea id="css-input" spellcheck="false" placeholder="Ex: body { background-color: #f0f0f0; }"></textarea>
+        <div class="p-2 d-flex justify-content-end gap-2 bg-dark">
+            <button class="btn btn-sm btn-outline-light" onclick="aplicarCssPreview()">Testar (Preview)</button>
+            <button class="btn btn-sm btn-success" onclick="salvarLayoutDefinitivo()">💾 Publicar Atualização</button>
+        </div>
+    </div>
 
-    atualizarStatusRede();
-    window.addEventListener('online', atualizarStatusRede);
-    window.addEventListener('offline', atualizarStatusRede);
+    <!-- WIDGET DE CHAT -->
+    <div id="chat-btn" style="position: fixed; bottom: 60px; right: 20px; z-index: 1039;">
+        <button class="btn btn-primary rounded-circle p-3 shadow position-relative" onclick="toggleChat()">
+            💬
+            <span id="chat-notification-badge"
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
+                !
+            </span>
+        </button>
+    </div>
 
-    // Verificação mais confiável (ping simples a cada 10s)
-    setInterval(() => {
-        fetch('https://www.google.com/favicon.ico', { mode: 'no-cors', cache: 'no-store' })
-            .then(() => atualizarStatusRede())
-            .catch(() => atualizarStatusRede());
-    }, 10000);
+    <div id="chat-widget">
+        <div id="chat-header" onclick="toggleChat()">
+            <span>Suporte / Chat</span>
+            <button class="btn btn-sm btn-outline-light py-0" onclick="expandirChat(event)">⛶</button>
+            <span id="chat-toggle-icon">▼</span>
+        </div>
+        <div id="chat-body">
+            <div class="text-center text-muted small">Carregando mensagens...</div>
+        </div>
+        <!-- Área de avaliação (oculta por padrão) -->
+        <div id="chat-rating" class="p-2 bg-light text-center d-none border-top"></div>
 
-    // 2. Data e hora no navbar (atualiza a cada segundo)
-    const dataHoraEl = document.getElementById('data-hora-atual');
-    function atualizarDataHora() {
-        const now = new Date();
-        const data = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const hora = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        if (dataHoraEl) dataHoraEl.textContent = `${data} ${hora}`;
-    }
-    atualizarDataHora();
-    setInterval(atualizarDataHora, 1000);
+        <div id="chat-footer" class="d-flex gap-2 align-items-center">
+            <input type="text" id="chat-input" class="form-control form-control-sm" placeholder="Mensagem..."
+                onkeypress="handleChatKey(event)">
+            <button class="btn btn-sm btn-primary" onclick="enviarMensagem()">Enviar</button>
+        </div>
+    </div>
 
-    // 3. Buscar veículos da API e atualizar tabela
-    async function carregarVeiculos() {
-        try {
-            console.log('Carregando veículos...');
-            const response = await fetch('http://localhost:5500/veiculos');
-            
-            if (!response.ok) {
-                throw new Error(`Erro HTTP: ${response.status}`);
-            }
-            
-            const veiculos = await response.json();
-            console.log('Veículos recebidos:', veiculos);
-            
-            const tbody = document.getElementById('tbody-veiculos');
-            if (!tbody) {
-                console.error('Elemento tbody não encontrado!');
-                return;
-            }
-            
-            tbody.innerHTML = ''; // Limpar tabela
-            
-            if (!Array.isArray(veiculos) || veiculos.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum veículo no estacionamento</td></tr>';
+    <!-- MODAL: Protocolos de Suporte (Apenas DEV) -->
+    <div class="modal fade" id="protocolosModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">Protocolos de Suporte</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <!-- Barra de Ferramentas -->
+                    <div class="p-2 bg-light border-bottom d-flex justify-content-between align-items-center">
+                        <div class="form-check ms-2">
+                            <input class="form-check-input" type="checkbox" id="selectAllProtocols" onclick="toggleAllProtocols(this)">
+                            <label class="form-check-label" for="selectAllProtocols">Selecionar Todos</label>
+                        </div>
+                        <button class="btn btn-sm btn-danger" onclick="encerrarEmMassa()">Encerrar Selecionados (Force)</button>
+                    </div>
+                    <div id="protocolosBody" style="max-height: 60vh; overflow-y: auto;">
+                        <div class="p-3">Carregando...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Publicar Atualização (Apenas DEV) -->
+    <div class="modal fade" id="publishUpdateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">🚀 Publicar Nova Versão</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="updateVersion" class="form-label">Nº da Versão (ex: 1.2.0)</label>
+                        <input type="text" class="form-control" id="updateVersion" placeholder="1.2.0">
+                    </div>
+                    <div class="mb-3">
+                        <label for="updateChangelog" class="form-label">Novidades (uma por linha)</label>
+                        <textarea class="form-control" id="updateChangelog" rows="5"
+                            placeholder="- Correção no chat&#10;- Nova cor no painel"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="publicarAtualizacao()">Publicar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Detalhes da Atualização (Para Clientes) -->
+    <div class="modal fade" id="updateDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">🚀 Melhorias no Sistema!</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Uma nova versão está disponível com as seguintes melhorias:</p>
+                    <div id="update-changelog" class="p-3 bg-light rounded">
+                        <!-- Changelog aqui -->
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+                        id="btn-update-later">Lembrar Depois</button>
+                    <button type="button" class="btn btn-success" onclick="performUpdate()">Atualizar Agora</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === ADICIONADO: Scripts no final do body === -->
+    <script>
+        // Variáveis globais do Chat/Sistema (Declaradas no topo para evitar erros)
+        let currentUser = { username: null, role: null };
+        let currentChatProtocolId = null;
+
+        // 1. Status da Rede (verde = online, vermelho = offline)
+        const statusRede = document.getElementById('status-rede');
+        const bolinha = document.getElementById('bolinha-status');
+
+        function atualizarStatusRede() {
+            if (navigator.onLine) {
+                statusRede.classList.remove('offline');
+                statusRede.classList.add('online');
             } else {
-                veiculos.forEach(veiculo => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
+                statusRede.classList.remove('online');
+                statusRede.classList.add('offline');
+            }
+        }
+
+        atualizarStatusRede();
+        window.addEventListener('online', atualizarStatusRede);
+        window.addEventListener('offline', atualizarStatusRede);
+
+        // Verificação mais confiável (ping simples a cada 10s)
+        setInterval(() => {
+            fetch('https://www.google.com/favicon.ico', { mode: 'no-cors', cache: 'no-store' })
+                .then(() => atualizarStatusRede())
+                .catch(() => atualizarStatusRede());
+        }, 10000);
+
+        // 2. Data e hora no navbar (atualiza a cada segundo)
+        const dataHoraEl = document.getElementById('data-hora-atual');
+        function atualizarDataHora() {
+            const now = new Date();
+            const data = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const hora = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            if (dataHoraEl) dataHoraEl.textContent = `${data} ${hora}`;
+        }
+        atualizarDataHora();
+        setInterval(atualizarDataHora, 1000);
+
+        // 3. Buscar veículos da API e atualizar tabela
+        async function carregarVeiculos() {
+            try {
+                console.log('Carregando veículos...');
+                const response = await fetch('/veiculos');
+
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+
+                const veiculos = await response.json();
+                console.log('Veículos recebidos:', veiculos);
+
+                const tbody = document.getElementById('tbody-veiculos');
+                if (!tbody) {
+                    console.error('Elemento tbody não encontrado!');
+                    return;
+                }
+
+                tbody.innerHTML = ''; // Limpar tabela
+
+                if (!Array.isArray(veiculos) || veiculos.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum veículo no estacionamento</td></tr>';
+                } else {
+                    veiculos.forEach(veiculo => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
                         <td>${veiculo.placa || '-'}</td>
-                        <td>-</td>
+                        <td>${veiculo.responsavel || '-'}</td>
                         <td>${veiculo.entrada || '-'}</td>
                         <td><span class="badge bg-success">No Pátio</span></td>
                         <td>Principal</td>
@@ -294,100 +650,137 @@
                             <button class="btn btn-sm btn-danger" onclick="registrarSaida('${veiculo.placa}')">Dar Saída</button>
                         </td>
                     `;
-                    tbody.appendChild(row);
-                });
-            }
-            
-            // Atualizar card "No Pátio"
-            const cards = document.querySelectorAll('.card.text-bg-success h4');
-            if (cards.length > 0) {
-                    cards[0].textContent = Array.isArray(veiculos) ? veiculos.length : 0;
+                        tbody.appendChild(row);
+                    });
+                }
+
+                // Atualizar card "No Pátio"
+                const cardPatio = document.querySelector('.card.text-bg-success h4');
+                const cardSairam = document.querySelector('.card.text-bg-danger h4');
+                const cardPendentes = document.querySelector('.card.text-bg-warning h4');
+                const cardVisitantes = document.querySelector('.card.text-bg-info h4');
+
+                if (cardPatio) {
+                    cardPatio.textContent = Array.isArray(veiculos) ? veiculos.length : 0;
                     // Buscar estatísticas adicionais
                     try {
-                        fetch('http://localhost:5500/estatisticas')
+                        fetch('/estatisticas')
                             .then(r => r.ok ? r.json() : Promise.reject(r))
                             .then(stats => {
-                                if (cards[1]) cards[1].textContent = stats.sairam_hoje ?? '0';
-                                if (cards[2]) cards[2].textContent = stats.pendentes ?? '0';
-                                if (cards[3]) cards[3].textContent = stats.visitantes ?? '0';
+                                if (cardSairam) cardSairam.textContent = stats.sairam_hoje ?? '0';
+                                if (cardPendentes) cardPendentes.textContent = stats.pendentes ?? '0';
+                                if (cardVisitantes) cardVisitantes.textContent = stats.visitantes ?? '0';
                             })
                             .catch(err => console.error('Erro ao obter estatísticas:', err));
                     } catch (e) {
                         console.error('Erro fetch estatisticas:', e);
                     }
-            }
-            
-        } catch (error) {
-            console.error('Erro ao carregar veículos:', error);
-            const tbody = document.getElementById('tbody-veiculos');
-            if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">❌ Erro ao conectar com a API: ' + error.message + '</td></tr>';
+                }
+
+            } catch (error) {
+                console.error('Erro ao carregar veículos:', error);
+                const tbody = document.getElementById('tbody-veiculos');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">❌ Erro ao conectar com a API: ' + error.message + '</td></tr>';
+                }
             }
         }
-    }
 
-    // 4. Registrar saída de veículo
-    async function registrarSaida(placa) {
-        try {
-            console.log('Registrando saída:', placa);
-            const response = await fetch(`http://localhost:5500/saida?placa=${placa}`, { method: 'POST' });
-            const resultado = await response.json();
-            
-            console.log('Resultado saída:', resultado);
-            
-            if (resultado.status) {
-                alert(`Saída registrada para ${placa}`);
-                carregarVeiculos(); // Recarregar tabela
-            } else {
-                alert(`Erro: ${resultado.erro}`);
+        // 4. Registrar saída de veículo
+        async function registrarSaida(placa) {
+            try {
+                console.log('Registrando saída:', placa);
+                const response = await fetch(`/saida?placa=${placa}`, { method: 'POST' });
+                const resultado = await response.json();
+
+                console.log('Resultado saída:', resultado);
+
+                if (resultado.status) {
+                    alert(`Saída registrada para ${placa}`);
+                    carregarVeiculos(); // Recarregar tabela
+                } else {
+                    alert(`Erro: ${resultado.erro}`);
+                }
+            } catch (error) {
+                console.error('Erro ao registrar saída:', error);
+                alert('Erro ao registrar saída');
             }
-        } catch (error) {
-            console.error('Erro ao registrar saída:', error);
-            alert('Erro ao registrar saída');
         }
-    }
 
-    // Carregar veículos ao iniciar a página
-    window.addEventListener('load', () => {
-        console.log('Página carregada, iniciando carregamento de veículos');
-        carregarVeiculos();
-    });
+        // 5. Verificar Permissões do Usuário (Role)
+        async function verificarPermissoes() {
+            try {
+                const res = await fetch('/me');
+                const data = await res.json();
+                if (data.authenticated) {
+                    // FIX: Armazena os dados do usuário globalmente para uso no chat e outras funções
+                    currentUser.username = data.username;
+                    currentUser.role = data.role;
 
-    // Atualizar veículos a cada 5 segundos
-    setInterval(carregarVeiculos, 5000);
-</script>
-<!-- Fim dos scripts -->
+                    // Se for admin ou gerente, mostra menu de usuários
+                    if (data.role === 'admin' || data.role === 'gerente') {
+                        document.getElementById('menu-usuarios').classList.remove('d-none');
+                        document.getElementById('menu-usuarios-mobile').classList.remove('d-none');
+                    }
+                    // Se for DEV, mostra menu de edição de layout
+                    if (data.role === 'dev') {
+                        ['menu-dev', 'menu-dev-protocolos', 'menu-dev-update'].forEach(id => document.getElementById(id).classList.remove('d-none'));
+                        ['menu-dev-mobile', 'menu-dev-protocolos-mobile', 'menu-dev-update-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
+                    } else if (data.role === 'admin') {
+                        // Admin também pode ver protocolos
+                        ['menu-dev-protocolos', 'menu-dev-protocolos-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
+                        // Também mostra o modal SQL se quiser (opcional, ou cria outro botão)
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
 
-<!-- Bootstrap JS (necessário para offcanvas e comportamento responsivo) -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+        // Carregar veículos ao iniciar a página
+        window.addEventListener('load', () => {
+            console.log('Página carregada, iniciando carregamento de veículos');
+            carregarVeiculos();
+            verificarPermissoes();
+            carregarLayoutSalvo(); // Carrega o CSS do banco
+            carregarConfigVisual(); // Carrega as edições visuais (textos/cores)
+            checkForUpdates(); // Verifica se há nova versão
+        });
 
-<!-- Modal: Entradas de Carros -->
-<div class="modal fade" id="entradaModal" tabindex="-1" aria-labelledby="entradaModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content" style="border-radius:14px; overflow:hidden;">
-            <div class="modal-header">
-                <h5 class="modal-title" id="entradaModalLabel">Entradas - Carros</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <div id="entradaModalBody">
-                    <p class="text-muted">Carregando...</p>
+        // Atualizar veículos a cada 5 segundos
+        setInterval(carregarVeiculos, 5000);
+
+    </script>
+    <!-- Fim dos scripts -->
+
+    <!-- Bootstrap JS (necessário para offcanvas e comportamento responsivo) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Modal: Entradas de Carros -->
+    <div class="modal fade" id="entradaModal" tabindex="-1" aria-labelledby="entradaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="entradaModalLabel">Entradas - Carros</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <div class="modal-body">
+                    <div id="entradaModalBody">
+                        <p class="text-muted">Carregando...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-// Preenche o modal quando for exibido
-document.getElementById('entradaModal').addEventListener('show.bs.modal', async function (event) {
-        const body = document.getElementById('entradaModalBody');
-        body.innerHTML = '<p class="text-muted">Carregando...</p>';
-        try {
-                const res = await fetch('http://localhost:5500/veiculos');
+    <script>
+        // Preenche o modal quando for exibido
+        document.getElementById('entradaModal').addEventListener('show.bs.modal', async function (event) {
+            const body = document.getElementById('entradaModalBody');
+            body.innerHTML = '<p class="text-muted">Carregando...</p>';
+            try {
+                const res = await fetch('/veiculos');
                 if (!res.ok) throw new Error('Erro HTTP ' + res.status);
                 const veiculos = await res.json();
 
@@ -402,46 +795,1332 @@ document.getElementById('entradaModal').addEventListener('show.bs.modal', async 
                     return;
                 }
 
-                // Construir lista única de nomes de responsáveis
-                const nomes = [];
-                carros.forEach(c => {
-                    const responsavel = (c.responsavel || c.responsavelNome || '').toString().trim();
-                    if (responsavel) nomes.push(responsavel);
-                });
-
-                // remover duplicados
-                const nomesUnicos = Array.from(new Set(nomes));
-
-                if (nomesUnicos.length === 0) {
-                    body.innerHTML = '<div class="text-center text-muted">Nenhum responsável registrado</div>';
-                    return;
-                }
-
                 const ul = document.createElement('ul');
                 ul.className = 'list-group';
-                nomesUnicos.forEach(n => {
+
+                carros.forEach(c => {
+                    // Formatar data: trocar - por / e ajustar YYYY-MM-DD se necessário
+                    let dataFormatada = c.entrada || '-';
+                    dataFormatada = dataFormatada.replace(/-/g, '/');
+                    if (/^\d{4}\/\d{2}\/\d{2}/.test(dataFormatada)) {
+                        const partes = dataFormatada.split(' ');
+                        const data = partes[0].split('/');
+                        const hora = partes[1] || '';
+                        dataFormatada = `${data[2]}/${data[1]}/${data[0]} ${hora}`;
+                    }
+
                     const li = document.createElement('li');
-                    li.className = 'list-group-item';
-                    li.textContent = n;
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    li.innerHTML = `
+                        <div>
+                            <span class="fw-bold">${c.placa}</span>
+                            <span class="text-muted small ms-2">${c.responsavel || '-'}</span>
+                        </div>
+                        <span class="badge bg-success">${dataFormatada}</span>
+                    `;
                     ul.appendChild(li);
                 });
 
                 body.innerHTML = '';
                 body.appendChild(ul);
-        } catch (err) {
+            } catch (err) {
                 body.innerHTML = '<div class="text-danger">Erro ao carregar entradas: ' + (err.message || err) + '</div>';
                 console.error(err);
-        }
-});
-</script>
+            }
+        });
+    </script>
 
-
-<!-- Rodapé fixo -->
-<footer id="site-footer">
-    <div class="container-fluid text-start px-0">
-        <span class="footer-text">Desenvolvido por: CisNet Tech</span>
+    <!-- Modal: Saídas de Carros -->
+    <div class="modal fade" id="saidaModal" tabindex="-1" aria-labelledby="saidaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="saidaModalLabel">Saídas - Carros</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="saidaModalBody">
+                        <p class="text-muted">Carregando...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
     </div>
-</footer>
+
+    <script>
+        // Preenche o modal de saída quando for exibido
+        document.getElementById('saidaModal').addEventListener('show.bs.modal', async function (event) {
+            const body = document.getElementById('saidaModalBody');
+            body.innerHTML = '<p class="text-muted">Carregando...</p>';
+            try {
+                const res = await fetch('/saidas');
+                if (!res.ok) throw new Error('Erro HTTP ' + res.status);
+                const veiculos = await res.json();
+
+                const carros = (Array.isArray(veiculos) ? veiculos : []).filter(v => {
+                    if (!v.tipo) return false;
+                    return v.tipo.toString().toLowerCase().includes('carro');
+                });
+
+                if (carros.length === 0) {
+                    body.innerHTML = '<div class="text-center text-muted">Nenhum registro de saída de carro</div>';
+                    return;
+                }
+
+                const ul = document.createElement('ul');
+                ul.className = 'list-group';
+
+                carros.forEach(c => {
+                    // Formatar data: trocar - por / e ajustar YYYY-MM-DD se necessário
+                    let dataFormatada = c.saida || '-';
+                    dataFormatada = dataFormatada.replace(/-/g, '/');
+                    if (/^\d{4}\/\d{2}\/\d{2}/.test(dataFormatada)) {
+                        const partes = dataFormatada.split(' ');
+                        const data = partes[0].split('/');
+                        const hora = partes[1] || '';
+                        dataFormatada = `${data[2]}/${data[1]}/${data[0]} ${hora}`;
+                    }
+
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    li.innerHTML = `
+                        <div>
+                            <span class="fw-bold">${c.placa}</span>
+                            <span class="text-muted small ms-2">${c.responsavel || '-'}</span>
+                        </div>
+                        <span class="badge bg-secondary">${dataFormatada}</span>
+                    `;
+                    ul.appendChild(li);
+                });
+
+                body.innerHTML = '';
+                body.appendChild(ul);
+            } catch (err) {
+                body.innerHTML = '<div class="text-danger">Erro ao carregar saídas: ' + (err.message || err) + '</div>';
+                console.error(err);
+            }
+        });
+    </script>
+
+    <script>
+        // Funções de formatação e máscara
+        function formatarCampo(campo, tipo) {
+            let valor = campo.value.replace(/\D/g, ''); // Remove tudo que não é dígito
+
+            if (tipo === 'cpf') {
+                valor = valor.slice(0, 11);
+                valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+                valor = valor.replace(/(\d{3})(\d)/, '$1.$2');
+                valor = valor.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            } else if (tipo === 'cep') {
+                valor = valor.slice(0, 8);
+                valor = valor.replace(/(\d{5})(\d)/, '$1-$2');
+            } else if (tipo === 'telefone') {
+                valor = valor.slice(0, 11);
+                if (valor.length > 10) {
+                    valor = valor.replace(/^(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+                } else {
+                    valor = valor.replace(/^(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+                }
+            }
+            campo.value = valor;
+        }
+
+        function paraMaiusculo(e) {
+            // Ignora o campo de email
+            if (e.target.type === 'email' || e.target.id === 'cadEmail') return;
+
+            var start = e.target.selectionStart;
+            var end = e.target.selectionEnd;
+            e.target.value = e.target.value.toUpperCase();
+            e.target.setSelectionRange(start, end);
+        }
+    </script>
+
+    <!-- Modal: Cadastro de Funcionários -->
+    <div class="modal fade" id="cadastroModal" tabindex="-1" aria-labelledby="cadastroModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl"> <!-- modal-xl para ser maior -->
+            <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="cadastroModalLabel">Novo Cadastro</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="formCadastro" oninput="paraMaiusculo(event)">
+                        <input type="hidden" id="cadId">
+                        <div class="row g-3">
+                            <!-- Linha 1 -->
+                            <div class="col-md-6">
+                                <label for="cadNome" class="form-label fw-bold">Nome Completo</label>
+                                <input type="text" class="form-control" id="cadNome" placeholder="DIGITE O NOME">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="cadNascimento" class="form-label fw-bold">Data de Nascimento</label>
+                                <input type="date" class="form-control" id="cadNascimento">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="cadCpf" class="form-label fw-bold">CPF</label>
+                                <input type="text" class="form-control" id="cadCpf" placeholder="000.000.000-00"
+                                    oninput="formatarCampo(this, 'cpf')">
+                            </div>
+
+                            <!-- Linha 2 -->
+                            <div class="col-md-3">
+                                <label for="cadPlaca" class="form-label fw-bold">Placa do Veículo</label>
+                                <input type="text" class="form-control" id="cadPlaca" placeholder="ABC-1234">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="cadTipoVeiculo" class="form-label fw-bold">Tipo de Veículo</label>
+                                <select class="form-select" id="cadTipoVeiculo">
+                                    <option value="Carro" selected>Carro</option>
+                                    <option value="Moto">Moto</option>
+                                    <option value="Caminhão">Caminhão</option>
+                                    <option value="Outros">Outros</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="cadTelefone" class="form-label fw-bold">Telefone</label>
+                                <input type="text" class="form-control" id="cadTelefone" placeholder="(XX) XXXXX-XXXX"
+                                    oninput="formatarCampo(this, 'telefone')">
+                                <div id="msgTelefone" class="form-text"></div>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="cadEmail" class="form-label fw-bold">Email</label>
+                                <input type="email" class="form-control" id="cadEmail" placeholder="exemplo@email.com"
+                                    style="text-transform: lowercase;">
+                            </div>
+
+                            <!-- Linha 3 -->
+                            <div class="col-md-3">
+                                <label for="cadCep" class="form-label fw-bold">CEP</label>
+                                <input type="text" class="form-control" id="cadCep" placeholder="00000-000"
+                                    oninput="formatarCampo(this, 'cep')" onblur="pesquisarCep(this.value)">
+                            </div>
+                            <div class="col-md-7">
+                                <label for="cadEndereco" class="form-label fw-bold">Endereço</label>
+                                <input type="text" class="form-control" id="cadEndereco">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="cadNumero" class="form-label fw-bold">Nº</label>
+                                <input type="text" class="form-control" id="cadNumero">
+                            </div>
+
+                            <!-- Linha 4 -->
+                            <div class="col-md-6">
+                                <label for="cadCargo" class="form-label fw-bold">Cargo</label>
+                                <input type="text" class="form-control" id="cadCargo"
+                                    placeholder="EX: GERENTE, ATENDENTE...">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="cadEmpresa" class="form-label fw-bold">Empresa</label>
+                                <input type="text" class="form-control" id="cadEmpresa" placeholder="NOME DA EMPRESA">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" onclick="limparCadastro()">Limpar
+                        Tudo</button>
+                    <button type="button" class="btn btn-primary px-4" id="btnSalvarCadastro"
+                        onclick="salvarCadastro()">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function pesquisarCep(cep) {
+            cep = cep.replace(/\D/g, '');
+            if (cep.length === 8) {
+                document.getElementById('cadEndereco').value = 'Buscando...';
+                try {
+                    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                    const data = await res.json();
+                    if (!data.erro) {
+                        document.getElementById('cadEndereco').value = `${data.logradouro}, ${data.bairro}, ${data.localidade}`;
+                        // document.getElementById('cadEstado').value = data.uf; // Campo removido
+                    } else {
+                        alert('CEP não encontrado.');
+                        document.getElementById('cadEndereco').value = '';
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert('Erro ao buscar CEP.');
+                }
+            }
+        }
+
+        function limparCadastro() {
+            document.getElementById('formCadastro').reset();
+            document.getElementById('cadId').value = ''; // Limpa o ID
+            document.getElementById('cadastroModalLabel').textContent = 'Novo Cadastro';
+            document.getElementById('btnSalvarCadastro').textContent = 'Salvar';
+        }
+
+        async function salvarCadastro() {
+            const id = document.getElementById('cadId').value;
+            const dados = {
+                nome: document.getElementById('cadNome').value,
+                data_nascimento: document.getElementById('cadNascimento').value,
+                telefone: document.getElementById('cadTelefone').value,
+                cep: document.getElementById('cadCep').value,
+                endereco: document.getElementById('cadEndereco').value,
+                numero: document.getElementById('cadNumero').value,
+                cargo: document.getElementById('cadCargo').value,
+                email: document.getElementById('cadEmail').value,
+                cpf: document.getElementById('cadCpf').value,
+                empresa: document.getElementById('cadEmpresa').value,
+                placa: document.getElementById('cadPlaca').value,
+                tipo_veiculo: document.getElementById('cadTipoVeiculo').value
+            };
+
+            const url = id ? `/cadastro/${id}` : '/cadastro';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dados)
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.detail || 'Erro ao salvar');
+                }
+
+                const json = await res.json();
+                alert(json.status || json.erro || 'Operação concluída.');
+
+                if (res.ok) {
+                    limparCadastro();
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('cadastroModal'));
+                    modal.hide();
+                    // Recarrega a lista de cadastros se estiver aberta
+                    if (document.getElementById('consultaCadastroModal').classList.contains('show')) {
+                        carregarCadastros();
+                    }
+                }
+            } catch (e) {
+                alert('Erro na conexão com a API');
+                console.error(e);
+            }
+        }
+    </script>
+
+    <script>
+        // Limpa o formulário de cadastro ao abrir para um novo registro
+        document.getElementById('cadastroModal').addEventListener('show.bs.modal', (event) => {
+            // Só limpa se não for acionado pelo botão de editar
+            if (!event.relatedTarget || !event.relatedTarget.classList.contains('btn-edit')) {
+                limparCadastro();
+            }
+        });
+    </script>
+
+    <!-- Modal: Consulta de Cadastros -->
+    <div class="modal fade" id="consultaCadastroModal" tabindex="-1" aria-labelledby="consultaCadastroModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content" style="border-radius:14px; overflow:hidden;">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title" id="consultaCadastroModalLabel">Consultar Cadastros</h5>
+                    <div class="ms-auto">
+                        <input type="search" class="form-control form-control-sm" id="buscaCadastro"
+                            placeholder="Pesquisar por nome ou placa...">
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"
+                        aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body" id="consultaCadastroBody">
+                    <p class="text-muted">Carregando...</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const consultaModal = document.getElementById('consultaCadastroModal');
+        const buscaInput = document.getElementById('buscaCadastro');
+        const consultaBody = document.getElementById('consultaCadastroBody');
+
+        async function carregarCadastros(termoBusca = '') {
+            consultaBody.innerHTML = '<p class="text-muted">Carregando...</p>';
+            try {
+                const url = termoBusca ? `/cadastros?busca=${encodeURIComponent(termoBusca)}` : '/cadastros';
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Erro HTTP ' + res.status);
+
+                const cadastros = await res.json();
+
+                if (cadastros.length === 0) {
+                    consultaBody.innerHTML = '<div class="text-center text-muted">Nenhum cadastro encontrado.</div>';
+                    return;
+                }
+
+                const list = document.createElement('div');
+                list.className = 'list-group';
+
+                cadastros.forEach(p => {
+                    const item = document.createElement('div');
+                    item.className = 'list-group-item list-group-item-action';
+                    item.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between">
+                        <div>
+                            <h5 class="mb-1">${p.nome || 'Nome não informado'}</h5>
+                            <small class="text-muted">CPF: ${p.cpf || '-'}</small>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary btn-edit" onclick="editarCadastro(${p.id}, event)" title="Editar">✏️</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="excluirCadastro(${p.id}, event)" title="Excluir">🗑️</button>
+                        </div>
+                    </div>
+                    <p class="mb-1">
+                        <strong>Cargo:</strong> ${p.cargo || '-'} | 
+                        <strong>Empresa:</strong> ${p.empresa || '-'} | 
+                        <strong>Telefone:</strong> ${p.telefone || '-'}
+                    </p>
+                    <small>Placa: <strong>${p.placa || '-'}</strong></small>
+                `;
+                    list.appendChild(item);
+                });
+                consultaBody.innerHTML = '';
+                consultaBody.appendChild(list);
+
+            } catch (err) {
+                consultaBody.innerHTML = '<div class="text-danger">Erro ao carregar cadastros: ' + (err.message || err) + '</div>';
+                console.error(err);
+            }
+        }
+
+        async function excluirCadastro(id, event) {
+            event.stopPropagation(); // Impede que o modal feche ou outros eventos sejam disparados
+            if (confirm('Tem certeza que deseja excluir este cadastro?')) {
+                try {
+                    const res = await fetch(`/cadastro/${id}`, { method: 'DELETE' });
+                    const json = await res.json();
+                    alert(json.status || json.erro);
+                    if (res.ok) {
+                        carregarCadastros(buscaInput.value); // Recarrega a lista
+                    }
+                } catch (e) {
+                    alert('Erro ao conectar com a API para excluir.');
+                    console.error(e);
+                }
+            }
+        }
+
+        async function editarCadastro(id, event) {
+            event.stopPropagation();
+            try {
+                const res = await fetch(`/cadastro/${id}`);
+                if (!res.ok) throw new Error('Cadastro não encontrado para edição.');
+                const dados = await res.json();
+
+                // Preenche o formulário
+                document.getElementById('cadId').value = dados.id;
+                document.getElementById('cadNome').value = dados.nome || '';
+                document.getElementById('cadNascimento').value = dados.data_nascimento || '';
+                document.getElementById('cadCpf').value = dados.cpf || '';
+                document.getElementById('cadPlaca').value = dados.placa || '';
+                document.getElementById('cadTipoVeiculo').value = dados.tipo_veiculo || 'Carro';
+                document.getElementById('cadTelefone').value = dados.telefone || '';
+                document.getElementById('cadEmail').value = dados.email || '';
+                document.getElementById('cadCep').value = dados.cep || '';
+                document.getElementById('cadEndereco').value = dados.endereco || '';
+                document.getElementById('cadNumero').value = dados.numero || '';
+                document.getElementById('cadCargo').value = dados.cargo || '';
+                document.getElementById('cadEmpresa').value = dados.empresa || '';
+
+                // Prepara o modal de edição
+                document.getElementById('cadastroModalLabel').textContent = 'Editar Cadastro';
+                document.getElementById('btnSalvarCadastro').textContent = 'Salvar Alterações';
+
+                // Pega as instâncias dos modais
+                const consultaModalEl = document.getElementById('consultaCadastroModal');
+                const cadastroModalEl = document.getElementById('cadastroModal');
+                const consultaModalInstance = bootstrap.Modal.getInstance(consultaModalEl);
+                const cadastroModalInstance = bootstrap.Modal.getInstance(cadastroModalEl) || new bootstrap.Modal(cadastroModalEl);
+
+                // Adiciona um listener para abrir o modal de edição DEPOIS que o de consulta fechar
+                consultaModalEl.addEventListener('hidden.bs.modal', () => {
+                    // Passa o botão que foi clicado como 'relatedTarget' para evitar que o formulário seja limpo
+                    cadastroModalInstance.show(event.target);
+                }, { once: true }); // 'once: true' garante que o listener só rode uma vez
+
+                // Fecha o modal de consulta para iniciar a transição
+                if (consultaModalInstance) {
+                    consultaModalInstance.hide();
+                }
+
+            } catch (e) {
+                alert('Erro ao carregar dados para edição.');
+                console.error(e);
+            }
+        }
+
+        consultaModal.addEventListener('show.bs.modal', () => {
+            buscaInput.value = '';
+            carregarCadastros();
+        });
+
+        let debounceTimer;
+        buscaInput.addEventListener('keyup', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                carregarCadastros(buscaInput.value);
+            }, 300); // Debounce para evitar muitas requisições
+        });
+    </script>
+
+    <!-- Modal: Gestão de Usuários (Apenas Gerente/Admin) -->
+    <div class="modal fade" id="usuariosModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Gestão de Usuários</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Formulário de Criação -->
+                    <div class="card mb-3">
+                        <div class="card-body bg-light">
+                            <h6>Novo Usuário</h6>
+                            <div class="mb-2">
+                                <input type="text" id="novoUser" class="form-control mb-2"
+                                    placeholder="Usuário (Login)">
+                                <input type="password" id="novoPass" class="form-control mb-2" placeholder="Senha">
+                                <select id="novoRole" class="form-select mb-2">
+                                    <option value="operador">Operador</option>
+                                    <option value="gerente">Gerente</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                                <button class="btn btn-success w-100" onclick="criarUsuario()">Criar Usuário</button>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <h6>Usuários Existentes</h6>
+                    <ul class="list-group" id="listaUsuarios">
+                        <li class="list-group-item text-center">Carregando...</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Lógica de Gestão de Usuários
+        document.getElementById('usuariosModal').addEventListener('show.bs.modal', carregarUsuarios);
+
+        async function carregarUsuarios() {
+            const lista = document.getElementById('listaUsuarios');
+            try {
+                const res = await fetch('/usuarios');
+                if (!res.ok) throw new Error('Sem permissão');
+                const users = await res.json();
+
+                lista.innerHTML = '';
+                users.forEach(u => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    li.innerHTML = `
+                    <span><strong>${u.username}</strong> <span class="badge bg-secondary">${u.role}</span></span>
+                    ${u.username !== 'admin' ? `<button class="btn btn-sm btn-outline-danger" onclick="deletarUsuario(${u.id})">Excluir</button>` : ''}
+                `;
+                    lista.appendChild(li);
+                });
+            } catch (e) {
+                lista.innerHTML = '<li class="list-group-item text-danger">Erro ao carregar ou acesso negado.</li>';
+            }
+        }
+
+        async function criarUsuario() {
+            const username = document.getElementById('novoUser').value;
+            const password = document.getElementById('novoPass').value;
+            const role = document.getElementById('novoRole').value;
+
+            if (!username || !password) return alert('Preencha usuário e senha');
+
+            const res = await fetch('/usuarios', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, role })
+            });
+            const data = await res.json();
+            alert(data.status || data.erro);
+            if (res.ok) {
+                document.getElementById('novoUser').value = '';
+                document.getElementById('novoPass').value = '';
+                carregarUsuarios();
+            }
+        }
+
+        async function deletarUsuario(id) {
+            if (!confirm('Excluir este usuário?')) return;
+            const res = await fetch(`/usuarios/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            alert(data.status || data.erro);
+            carregarUsuarios();
+        }
+    </script>
+
+    <!-- Modal: SQL Developer (Integrado) -->
+    <div class="modal fade" id="sqlModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">🛠️ Painel SQL (Developer)</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning text-dark">
+                        <strong>Cuidado:</strong> Execução direta no banco de dados.
+                    </div>
+                    <textarea id="sqlInput" class="form-control bg-secondary text-white mb-3" rows="4"
+                        placeholder="SELECT * FROM usuarios..."></textarea>
+                    <button onclick="executarSQL()" class="btn btn-primary">Executar</button>
+                    <div id="sqlResultado" class="mt-3 table-responsive" style="max-height: 300px; overflow: auto;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function executarSQL() {
+            const query = document.getElementById('sqlInput').value;
+            const resDiv = document.getElementById('sqlResultado');
+            resDiv.innerHTML = 'Processando...';
+
+            try {
+                const response = await fetch('/dev/sql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+                const data = await response.json();
+
+                if (data.erro) {
+                    resDiv.innerHTML = `<div class="alert alert-danger">${data.erro}</div>`;
+                } else if (data.colunas) {
+                    let html = '<table class="table table-dark table-sm table-bordered table-hover">';
+                    html += '<thead><tr>' + data.colunas.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+                    data.resultados.forEach(row => {
+                        html += '<tr>' + row.map(cell => `<td>${cell === null ? 'NULL' : cell}</td>`).join('') + '</tr>';
+                    });
+                    html += '</tbody></table>';
+                    resDiv.innerHTML = html;
+                } else {
+                    resDiv.innerHTML = `<div class="alert alert-success">${data.status}</div>`;
+                }
+            } catch (e) {
+                resDiv.innerHTML = `<div class="alert alert-danger">Erro: ${e}</div>`;
+            }
+        }
+    </script>
+
+    <script>
+        // --- LÓGICA DO MODO DE EDIÇÃO VISUAL (NO-CODE) ---
+        let visualMode = false;
+        let currentElement = null;
+        let visualConfig = {}; // Armazena { "selector": { "text": "...", "style": "..." } }
+
+        function toggleVisualMode() {
+            visualMode = !visualMode;
+            const body = document.body;
+            if (visualMode) {
+                alert("MODO DE EDIÇÃO ATIVADO!\n\n1. Passe o mouse sobre os elementos.\n2. Clique com o botão DIREITO para editar.\n3. As alterações são salvas automaticamente.");
+                document.addEventListener('mouseover', highlightElement);
+                document.addEventListener('mouseout', removeHighlight);
+                document.addEventListener('contextmenu', showContextMenu);
+                document.addEventListener('click', hideContextMenu);
+            } else {
+                alert("Modo de edição desativado.");
+                document.removeEventListener('mouseover', highlightElement);
+                document.removeEventListener('mouseout', removeHighlight);
+                document.removeEventListener('contextmenu', showContextMenu);
+                hideContextMenu();
+            }
+        }
+
+        function highlightElement(e) {
+            if (!visualMode) return;
+            e.target.classList.add('editable-hover');
+        }
+
+        function removeHighlight(e) {
+            if (!visualMode) return;
+            e.target.classList.remove('editable-hover');
+        }
+
+        function showContextMenu(e) {
+            if (!visualMode) return;
+            e.preventDefault();
+            currentElement = e.target;
+
+            const menu = document.getElementById('context-menu');
+            menu.style.display = 'block';
+            menu.style.left = e.pageX + 'px';
+            menu.style.top = e.pageY + 'px';
+        }
+
+        function hideContextMenu() {
+            document.getElementById('context-menu').style.display = 'none';
+        }
+
+        // --- Funções de Edição ---
+
+        function getUniqueSelector(el) {
+            if (el.id) return '#' + el.id;
+            // Gera um caminho simples se não tiver ID
+            let path = [];
+            while (el.nodeType === Node.ELEMENT_NODE && el.tagName !== 'BODY') {
+                let selector = el.nodeName.toLowerCase();
+                if (el.className) {
+                    // Pega a primeira classe para ajudar na especificidade
+                    const firstClass = el.classList[0];
+                    if (firstClass) selector += '.' + firstClass;
+                }
+                let sib = el, nth = 1;
+                while (sib = sib.previousElementSibling) {
+                    if (sib.nodeName.toLowerCase() == selector) nth++;
+                }
+                // if (nth > 1) selector += ":nth-of-type("+nth+")"; // Simplificado para evitar complexidade
+                path.unshift(selector);
+                el = el.parentNode;
+            }
+            return path.join(" > ");
+        }
+
+        function salvarAlteracao(tipo, valor) {
+            if (!currentElement) return;
+            const selector = getUniqueSelector(currentElement);
+
+            if (!visualConfig[selector]) visualConfig[selector] = {};
+
+            if (tipo === 'text') visualConfig[selector].text = valor;
+            if (tipo === 'style') {
+                // Acumula estilos
+                visualConfig[selector].style = currentElement.getAttribute('style');
+            }
+            if (tipo === 'class') {
+                visualConfig[selector].className = currentElement.className;
+            }
+
+            // Salvar no servidor (Debounce simples poderia ser adicionado aqui)
+            fetch('/config/visual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ config: visualConfig })
+            }).then(r => console.log("Alteração salva automaticamente."));
+        }
+
+        function editarTextoElemento() {
+            const novoTexto = prompt("Novo texto:", currentElement.innerText);
+            if (novoTexto !== null) {
+                currentElement.innerText = novoTexto;
+                salvarAlteracao('text', novoTexto);
+            }
+        }
+
+        function mudarCorFundo() {
+            const picker = document.getElementById('color-picker');
+            // Listener de uso único para aplicar a cor escolhida
+            picker.onchange = (e) => {
+                currentElement.style.backgroundColor = e.target.value;
+                salvarAlteracao('style', null);
+            };
+            picker.click(); // Abre o seletor de cores nativo do navegador
+        }
+
+        function mudarCorTexto() {
+            const picker = document.getElementById('color-picker');
+            picker.onchange = (e) => {
+                currentElement.style.color = e.target.value;
+                salvarAlteracao('style', null);
+            };
+            picker.click();
+        }
+        function aumentarLargura() {
+            // Lógica simples para Bootstrap: tenta subir de col-md-3 -> 4 -> 6 -> 12
+            if (currentElement.classList.contains('col-md-3')) {
+                currentElement.classList.replace('col-md-3', 'col-md-6');
+            } else if (currentElement.classList.contains('col-md-6')) {
+                currentElement.classList.replace('col-md-6', 'col-md-12');
+            }
+            salvarAlteracao('class', null);
+        }
+
+        function diminuirLargura() {
+            if (currentElement.classList.contains('col-md-12')) {
+                currentElement.classList.replace('col-md-12', 'col-md-6');
+            } else if (currentElement.classList.contains('col-md-6')) {
+                currentElement.classList.replace('col-md-6', 'col-md-3');
+            }
+            salvarAlteracao('class', null);
+        }
+
+        // --- Scripts do Editor de Layout (DEV) ---
+
+        function toggleLayoutEditor() {
+            const editor = document.getElementById('layout-editor');
+            if (editor.style.display === 'none' || !editor.style.display) {
+                editor.style.display = 'flex';
+            } else {
+                editor.style.display = 'none';
+            }
+        }
+
+        async function carregarLayoutSalvo() {
+            try {
+                const res = await fetch('/config/css');
+                const data = await res.json();
+                if (data.css) {
+                    // Aplica no site
+                    document.getElementById('dynamic-styles').innerHTML = data.css;
+                    // Coloca no editor também
+                    document.getElementById('css-input').value = data.css;
+                }
+            } catch (e) { console.error("Erro ao carregar layout:", e); }
+        }
+
+        async function carregarConfigVisual() {
+            try {
+                const res = await fetch('/config/visual');
+                const data = await res.json();
+                visualConfig = data || {};
+
+                // Aplicar configurações
+                for (const [selector, config] of Object.entries(visualConfig)) {
+                    const els = document.querySelectorAll(selector);
+                    els.forEach(el => {
+                        if (config.text) el.innerText = config.text;
+                        if (config.style) el.setAttribute('style', config.style);
+                        if (config.className) el.className = config.className;
+                    });
+                }
+            } catch (e) { console.error("Erro ao carregar config visual:", e); }
+        }
+
+        function aplicarCssPreview() {
+            const css = document.getElementById('css-input').value;
+            document.getElementById('dynamic-styles').innerHTML = css;
+        }
+
+        async function salvarLayoutDefinitivo() {
+            const css = document.getElementById('css-input').value;
+            try {
+                const res = await fetch('/config/css', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ css: css })
+                });
+                if (res.ok) {
+                    alert('Atualização publicada! Todos os usuários verão o novo layout.');
+                } else {
+                    alert('Erro ao salvar (apenas DEV pode fazer isso).');
+                }
+            } catch (e) { alert('Erro de conexão'); }
+        }
+    </script>
+
+    <!-- Rodapé fixo -->
+    <footer id="site-footer">
+        <!-- Notificação de Update -->
+        <div id="update-notification"
+            class="d-none alert alert-info py-2 px-3 mb-0 rounded-0 d-flex justify-content-between align-items-center">
+            <span>🚀 Nova atualização disponível! (Versão <b id="update-version-number"></b>)</span>
+            <button class="btn btn-sm btn-primary" onclick="showUpdateModal()">Ver Novidades</button>
+        </div>
+
+        <div class="container-fluid d-flex justify-content-between px-3">
+            <span class="footer-text">Desenvolvido por: CisNet Tech</span>
+            <div class="d-flex align-items-center gap-3">
+                <span class="footer-text">Versão <span id="client-version-display">1.1.0</span></span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+
+        function copiarProtocolo(id) {
+            navigator.clipboard.writeText(id).then(() => {
+                alert(`ID do protocolo #${id} copiado para a área de transferência!`);
+            }, () => { alert('Falha ao copiar o ID.'); });
+        }
+    </script>
+
+    <script>
+        // --- Scripts do Chat (Lógica com Protocolos) ---
+        function toggleChat() {
+            const widget = document.getElementById('chat-widget');
+            const badge = document.getElementById('chat-notification-badge');
+
+            if (widget.style.display === 'none' || widget.style.display === '') {
+                widget.style.display = 'flex';
+
+                // Esconde a notificação imediatamente
+                badge.classList.add('d-none');
+
+                // Carrega as mensagens e, no processo, atualiza a contagem de "vistos"
+                carregarMensagens(true); // Passa um flag para forçar a atualização do localStorage
+
+                // PERSISTÊNCIA DEV: Se for dev e não tiver protocolo carregado, tenta recuperar o último
+                if ((currentUser.role === 'dev' || currentUser.role === 'admin') && !currentChatProtocolId) {
+                    const lastProto = localStorage.getItem('dev_last_protocol');
+                    if (lastProto) {
+                        abrirChatProtocolo(lastProto);
+                    }
+                }
+
+                // Rolar para baixo
+                setTimeout(() => {
+                    const body = document.getElementById('chat-body');
+                    body.scrollTop = body.scrollHeight;
+                }, 200);
+            } else {
+                widget.style.display = 'none';
+            }
+        }
+
+        // Função principal que renderiza as mensagens na tela
+        function renderizarMensagens(msgs, protocolo_id, status = 'aberto') {
+            const body = document.getElementById('chat-body');
+            // Debug para verificar quem o sistema acha que é o usuário
+            console.log('Renderizando Chat | Usuário:', currentUser.username, '| Role:', currentUser.role, '| Status:', status);
+            const header = document.querySelector('#chat-header span');
+
+            if (protocolo_id) {
+                header.textContent = `Suporte / Protocolo #${protocolo_id}`;
+            } else {
+                header.textContent = 'Suporte / Chat';
+            }
+
+            if (!msgs || msgs.length === 0) {
+                body.innerHTML = '<div class="text-center text-muted small mt-3">Inicie a conversa para gerar um protocolo.</div>';
+                return;
+            }
+
+            let html = msgs.map(m => {
+                const alignment = (m.usuario === currentUser.username) ? 'right' : 'left';
+                const checkmark = (alignment === 'right') ? '<span class="ms-1 opacity-75">✓</span>' : '';
+                return `
+                <div class="d-flex flex-column">
+                    <div class="chat-message message-${alignment}">
+                        ${m.texto}
+                    </div>
+                    <div class="message-meta mb-2 text-${alignment === 'right' ? 'end' : 'start'}">
+                        <small>${m.usuario} - ${m.data_hora}${checkmark}</small>
+                    </div>
+                </div>
+            `;
+            }).join('');
+
+            // Lógica de Status (Avaliação / Fechado)
+            const footer = document.getElementById('chat-footer');
+            const ratingDiv = document.getElementById('chat-rating');
+
+            // Reset UI
+            footer.classList.remove('d-none');
+            ratingDiv.classList.add('d-none');
+            ratingDiv.innerHTML = '';
+
+            // Se o protocolo estiver em avaliação
+            if (status === 'avaliando') {
+                // Lógica Reforçada: Se NÃO for admin/dev, é cliente -> Mostra estrelas
+                const isAdmin = (currentUser.role === 'dev' || currentUser.role === 'admin');
+                
+                if (!isAdmin) {
+                    footer.classList.add('d-none'); // Esconde input
+                    ratingDiv.classList.remove('d-none');
+                    ratingDiv.innerHTML = `
+                    <p class="mb-2 fw-bold">Como foi seu atendimento?</p>
+                    <div class="d-flex justify-content-center gap-1 flex-wrap">
+                        ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n =>
+                        `<button class="btn btn-sm btn-outline-warning" onclick="enviarAvaliacao(${n})">${n}</button>`
+                    ).join('')}
+                    </div>
+                `;
+                } else {
+                    html += '<div class="text-center text-muted small mt-2"><em>Aguardando avaliação do cliente...</em></div>';
+                }
+            } else if (status === 'fechado') {
+                html += '<div class="text-center text-muted small mt-2"><em>Atendimento encerrado.</em></div>';
+                footer.classList.add('d-none');
+            } else {
+                // Status Aberto - Adicionar botões extras para o DEV
+                if (currentUser.role === 'dev' || currentUser.role === 'admin') {
+                    // Botão de Encerrar e Mensagem Padrão
+                    if (!document.getElementById('btn-dev-tools')) {
+                        const toolsDiv = document.createElement('div');
+                        toolsDiv.id = 'btn-dev-tools';
+                        toolsDiv.className = 'd-flex gap-1 me-1';
+                        toolsDiv.innerHTML = `
+                        <button class="btn btn-sm btn-outline-danger" title="Encerrar Atendimento" onclick="solicitarEncerramento()">🛑</button>
+                        <button class="btn btn-sm btn-outline-secondary" title="Msg Padrão: Posso encerrar?" onclick="inserirMsgPadrao()">📝</button>
+                    `;
+                        // Insere antes do input se não existir
+                        const input = document.getElementById('chat-input');
+                        if (input.parentNode.id === 'chat-footer') {
+                            input.parentNode.insertBefore(toolsDiv, input);
+                        }
+                    }
+                }
+            }
+
+            body.innerHTML = html;
+            body.scrollTop = body.scrollHeight;
+        }
+
+        async function enviarAvaliacao(nota) {
+            try {
+                await fetch(`/chat/protocol/${currentChatProtocolId}/rate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nota })
+                });
+                alert('Obrigado pela sua avaliação!');
+                // Recarrega para mostrar status fechado
+                if (currentUser.role === 'dev' || currentUser.role === 'admin') {
+                    abrirChatProtocolo(currentChatProtocolId);
+                } else {
+                    carregarMensagens();
+                }
+            } catch (e) { alert('Erro ao enviar avaliação'); }
+        }
+
+        function inserirMsgPadrao() {
+            const input = document.getElementById('chat-input');
+            input.value = "O problema foi resolvido? Posso encerrar o atendimento?";
+            input.focus();
+        }
+
+        async function solicitarEncerramento() {
+            if (!confirm("Deseja encerrar este atendimento e solicitar avaliação ao cliente?")) return;
+            try {
+                await fetch(`/chat/protocol/${currentChatProtocolId}/close`, { method: 'POST' });
+                // Recarrega
+                abrirChatProtocolo(currentChatProtocolId);
+            } catch (e) { alert('Erro ao encerrar'); }
+        }
+
+        // Para clientes, carrega o protocolo aberto atual
+        async function carregarMensagens(isOpeningChat = false) {
+            // Se for dev, esta função não faz nada, pois ele carrega via painel de protocolos
+            if (currentUser.role === 'dev' || currentUser.role === 'admin') return;
+
+            try {
+                const res = await fetch('/chat/my-protocol');
+                const data = await res.json();
+                currentChatProtocolId = data.protocolo_id;
+
+                // Se o chat está sendo aberto, atualiza o contador de mensagens vistas
+                if (isOpeningChat && data.protocolo_id) {
+                    localStorage.setItem('chat_last_seen_count_' + data.protocolo_id, data.messages.length);
+                }
+
+                // O backend retorna o protocolo inteiro dentro de 'protocolo_id' se mudarmos a API, mas aqui retorna só ID e msgs.
+                // Precisamos do status. Vamos assumir que o backend retorna status se alterarmos, 
+                // mas como não alterei o retorno de /chat/my-protocol para incluir status explicitamente no JSON root, 
+                // vou inferir ou precisaríamos ajustar o backend.
+                // AJUSTE: O endpoint /chat/my-protocol retorna {protocolo_id, messages}. 
+                // Vou precisar fazer um fetch extra ou ajustar o backend.
+                // Para simplificar e não quebrar, vou assumir 'aberto' se não vier status, 
+                // mas para funcionar a avaliação, preciso do status.
+                // Vou ajustar o backend services.py get_open_protocol_for_user retorna a row completa.
+                // O endpoint app.py usa protocol['id'].
+                // Vou ajustar o app.py para retornar o status também.
+
+                // Como não posso editar app.py novamente neste bloco, vou fazer um "hack" no frontend:
+                // Se a última mensagem for do sistema ou se eu tentar enviar e der erro...
+                // Melhor: O endpoint /chat/my-protocol pega o protocolo do banco.
+                // Se eu não mudar o app.py, não tenho o status.
+                // Mudei o services.py, mas o app.py constrói o JSON de resposta manualmente:
+                // return {"protocolo_id": protocol['id'], "messages": messages}
+                // Preciso mudar o app.py para retornar o status. (Fiz isso no passo 2? Não, esqueci de adicionar status no return do app.py).
+                // Vou corrigir o app.py no bloco acima antes de finalizar.
+
+                // Assumindo que corrigi o app.py para retornar "status": protocol['status']
+                renderizarMensagens(data.messages, data.protocolo_id, data.status);
+
+            } catch (e) { console.error("Erro ao carregar protocolo", e); }
+        }
+
+        async function enviarMensagem() {
+            const input = document.getElementById('chat-input');
+            const texto = input.value.trim();
+            if (!texto) return;
+
+            // Se for Dev/Admin e não tiver protocolo selecionado, o backend agora criará um novo (útil para testes)
+            // ou o usuário deve selecionar um na lista se quiser responder a alguém.
+
+            const payload = {
+                texto: texto,
+                protocolo_id: currentChatProtocolId // Será null para novo chat de cliente, ou o ID para dev/respostas
+            };
+
+            try {
+                const res = await fetch('/chat/send-message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || 'Erro ao processar envio');
+                }
+
+                const data = await res.json();
+
+                input.value = '';
+
+                // Se um novo protocolo foi criado (ou retornado), atualiza o ID
+                if (data.protocolo_id) {
+                    currentChatProtocolId = data.protocolo_id;
+                }
+
+                // Recarrega as mensagens da conversa certa
+                if (currentUser.role === 'dev' || currentUser.role === 'admin') {
+                    if (currentChatProtocolId) abrirChatProtocolo(currentChatProtocolId);
+                } else {
+                    carregarMensagens();
+                }
+            } catch (e) { alert('Erro ao enviar: ' + e.message); }
+        }
+
+        function handleChatKey(e) {
+            if (e.key === 'Enter') enviarMensagem();
+        }
+
+        // Atualiza o chat a cada 3s se estiver aberto (Reduzido delay)
+        setInterval(() => {
+            const widget = document.getElementById('chat-widget');
+            if (widget.style.display === 'flex') {
+                if (currentUser.role === 'dev' || currentUser.role === 'admin') {
+                    if (currentChatProtocolId) abrirChatProtocolo(currentChatProtocolId);
+                } else {
+                    carregarMensagens();
+                }
+            }
+        }, 3000);
+
+        function expandirChat(e) {
+            e.stopPropagation(); // Não fechar o chat ao clicar no botão
+            const widget = document.getElementById('chat-widget');
+            const body = document.getElementById('chat-body');
+
+            if (widget.style.width === '300px' || !widget.style.width) {
+                widget.style.width = '600px';
+                body.style.height = '500px';
+            } else {
+                widget.style.width = '300px';
+                body.style.height = '250px';
+            }
+        }
+
+        // --- Funções do DEV/Admin para Protocolos ---
+        document.getElementById('protocolosModal').addEventListener('show.bs.modal', async () => {
+            const body = document.getElementById('protocolosBody');
+            body.innerHTML = 'Carregando...';
+            try {
+                const res = await fetch('/chat/protocols');
+                const protocolos = await res.json();
+                if (protocolos.length === 0) {
+                    body.innerHTML = '<p class="text-muted text-center">Nenhum protocolo encontrado.</p>';
+                    return;
+                }
+                // Renderiza lista com checkboxes
+                const list = protocolos.map(p => `
+                <div class="list-group-item list-group-item-action d-flex gap-3 align-items-start">
+                    <input class="form-check-input mt-3 protocol-checkbox" type="checkbox" value="${p.id}">
+                    <div class="w-100" style="cursor: pointer;" onclick="if(event.target.type !== 'checkbox') { abrirChatProtocolo(${p.id}); bootstrap.Modal.getInstance(document.getElementById('protocolosModal')).hide(); }">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Protocolo #${p.id}</h5>
+                            <small>${p.data_inicio}</small>
+                        </div>
+                        <p class="mb-1">Usuário: <strong>${p.usuario_cliente}</strong></p>
+                        <small>Assunto: ${p.assunto}</small>
+                        <span class="badge bg-${p.status === 'aberto' ? 'success' : 'secondary'} float-end">${p.status}</span>
+                    </div>
+                </div>
+                `).join('');
+                body.innerHTML = `<div class="list-group">${list}</div>`;
+            } catch (e) {
+                body.innerHTML = '<p class="text-danger">Erro ao carregar protocolos.</p>';
+            }
+        });
+
+        async function abrirChatProtocolo(protocolo_id) {
+            currentChatProtocolId = protocolo_id;
+            try {
+                const res = await fetch(`/chat/protocols/${protocolo_id}`);
+                const data = await res.json();
+
+                // Salva persistência
+                localStorage.setItem('dev_last_protocol', protocolo_id);
+
+                // Preciso do status aqui também. O endpoint /chat/protocols/{id} no app.py precisa retornar status.
+                // Vou ajustar app.py para retornar status.
+                renderizarMensagens(data.messages, data.protocolo_id, data.status);
+
+                const widget = document.getElementById('chat-widget');
+                if (widget.style.display === 'none' || !widget.style.display) {
+                    toggleChat();
+                }
+            } catch (e) {
+                console.error("Erro ao abrir chat do protocolo", e);
+            }
+        }
+
+        // --- Funções de Encerramento em Massa ---
+        function toggleAllProtocols(source) {
+            const checkboxes = document.querySelectorAll('.protocol-checkbox');
+            checkboxes.forEach(cb => cb.checked = source.checked);
+        }
+
+        async function encerrarEmMassa() {
+            const checkboxes = document.querySelectorAll('.protocol-checkbox:checked');
+            const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+            if (ids.length === 0) return alert("Selecione pelo menos um protocolo.");
+            if (!confirm(`Tem certeza que deseja encerrar ${ids.length} protocolos sem avaliação?`)) return;
+
+            try {
+                const res = await fetch('/chat/protocols/bulk-close', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ids: ids})
+                });
+                const data = await res.json();
+                alert(data.status);
+                
+                // Recarrega a lista fechando e abrindo o modal (simples refresh)
+                // Ou melhor, dispara o evento de show novamente
+                const modalEl = document.getElementById('protocolosModal');
+                const event = new Event('show.bs.modal');
+                modalEl.dispatchEvent(event);
+            } catch(e) { alert("Erro ao encerrar protocolos."); }
+        }
+
+        // --- Lógica de Notificação de Chat ---
+        async function pollForNewMessages() {
+            // Garante que temos o usuário carregado antes de verificar mensagens
+            if (!currentUser.username) {
+                await verificarPermissoes();
+                if (!currentUser.username) return;
+            }
+
+            try {
+                // Lógica para ADMIN/DEV: Verifica se há QUALQUER nova mensagem no sistema
+                if (currentUser.role === 'dev' || currentUser.role === 'admin') {
+                    const res = await fetch('/chat/last-message-id');
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const serverLastId = data.id;
+                    const localLastId = parseInt(localStorage.getItem('admin_last_msg_id') || '0');
+
+                    // Se o ID do servidor for maior que o visto, mostra notificação
+                    if (serverLastId > localLastId) {
+                        const badge = document.getElementById('chat-notification-badge');
+                        badge.classList.remove('d-none');
+                    }
+                }
+                // Lógica para CLIENTE: Verifica apenas o protocolo dele
+                else {
+                    const res = await fetch('/chat/my-protocol');
+                    if (!res.ok) return;
+                    const data = await res.json();
+
+                    if (data.protocolo_id && data.messages.length > 0) {
+                        const lastSeenCount = parseInt(localStorage.getItem('chat_last_seen_count_' + data.protocolo_id) || '0');
+
+                        if (data.messages.length > lastSeenCount) {
+                            const badge = document.getElementById('chat-notification-badge');
+                            badge.classList.remove('d-none');
+                        }
+                    }
+                }
+            } catch (e) {
+                // Silently fail, não incomodar o usuário com erros de polling
+                console.error("Polling error:", e);
+            }
+        }
+
+        // Verifica por novas mensagens a cada 20 segundos
+        setInterval(pollForNewMessages, 20000);
+
+        // Ao abrir o chat, limpa a notificação (atualiza o ID visto)
+        document.getElementById('chat-btn').addEventListener('click', async () => {
+            if (currentUser.role === 'dev' || currentUser.role === 'admin') {
+                const res = await fetch('/chat/last-message-id');
+                const data = await res.json();
+                localStorage.setItem('admin_last_msg_id', data.id);
+            }
+        });
+
+        // --- Funções do Sistema de Atualização ---
+        const clientVersion = "1.1.0";
+        document.getElementById('client-version-display').textContent = clientVersion;
+
+        async function checkForUpdates() {
+            try {
+                const res = await fetch('/app-version');
+                const serverInfo = await res.json();
+
+                if (serverInfo.version > clientVersion) {
+                    const ignoredVersion = localStorage.getItem('ignoredUpdateVersion');
+                    if (ignoredVersion === serverInfo.version) return;
+
+                    document.getElementById('update-version-number').textContent = serverInfo.version;
+                    document.getElementById('update-changelog').innerHTML = serverInfo.changelog.replace(/\n/g, '<br>');
+                    document.getElementById('update-notification').classList.remove('d-none');
+
+                    document.getElementById('btn-update-later').onclick = () => {
+                        localStorage.setItem('ignoredUpdateVersion', serverInfo.version);
+                        document.getElementById('update-notification').classList.add('d-none');
+                    };
+                }
+            } catch (e) { console.error("Erro ao verificar atualizações:", e); }
+        }
+
+        function showUpdateModal() {
+            const modal = new bootstrap.Modal(document.getElementById('updateDetailsModal'));
+            modal.show();
+        }
+
+        function performUpdate() {
+            location.reload(true);
+        }
+
+        async function publicarAtualizacao() {
+            const version = document.getElementById('updateVersion').value;
+            const changelog = document.getElementById('updateChangelog').value;
+            if (!version || !changelog) return alert("Preencha a versão e as novidades.");
+
+            try {
+                const res = await fetch('/dev/publish-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ version, changelog })
+                });
+                const data = await res.json();
+                alert(data.status || data.detail);
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('publishUpdateModal')).hide();
+                }
+            } catch (e) { alert("Erro ao publicar."); }
+        }
+    </script>
 
 </body>
+
 </html>
