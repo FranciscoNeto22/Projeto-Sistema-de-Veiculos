@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional
 import bcrypt
 import json
+import pytz
 
 
 def get_db_connection():
@@ -406,7 +407,8 @@ def get_messages_by_protocol(protocolo_id):
 
 def save_chat_message(protocolo_id, usuario, texto):
     """Salva uma nova mensagem em um protocolo existente."""
-    data_hora = datetime.now().strftime("%d/%m %H:%M")
+    fuso = pytz.timezone('America/Sao_Paulo')
+    data_hora = datetime.now(fuso).strftime("%d/%m %H:%M")
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -419,7 +421,8 @@ def save_chat_message(protocolo_id, usuario, texto):
 
 def create_protocol_and_message(usuario, texto):
     """Cria um novo protocolo e adiciona a primeira mensagem."""
-    data_hora = datetime.now().strftime("%d/%m %H:%M")
+    fuso = pytz.timezone('America/Sao_Paulo')
+    data_hora = datetime.now(fuso).strftime("%d/%m %H:%M")
     with get_db_connection() as conn:
         cursor = conn.cursor()
         # 1. Criar o protocolo
