@@ -510,10 +510,12 @@
                     <!-- Barra de Ferramentas -->
                     <div class="p-2 bg-light border-bottom d-flex justify-content-between align-items-center">
                         <div class="form-check ms-2">
-                            <input class="form-check-input" type="checkbox" id="selectAllProtocols" onclick="toggleAllProtocols(this)">
+                            <input class="form-check-input" type="checkbox" id="selectAllProtocols"
+                                onclick="toggleAllProtocols(this)">
                             <label class="form-check-label" for="selectAllProtocols">Selecionar Todos</label>
                         </div>
-                        <button class="btn btn-sm btn-danger" onclick="encerrarEmMassa()">Encerrar Selecionados (Force)</button>
+                        <button class="btn btn-sm btn-danger" onclick="encerrarEmMassa()">Encerrar Selecionados
+                            (Force)</button>
                     </div>
                     <div id="protocolosBody" style="max-height: 60vh; overflow-y: auto;">
                         <div class="p-3">Carregando...</div>
@@ -1737,7 +1739,7 @@
             if (status === 'avaliando') {
                 // Lógica Reforçada: Se NÃO for admin/dev, é cliente -> Mostra estrelas
                 const isAdmin = (currentUser.role === 'dev' || currentUser.role === 'admin');
-                
+
                 if (!isAdmin) {
                     footer.classList.add('d-none'); // Esconde input
                     ratingDiv.classList.remove('d-none');
@@ -1997,18 +1999,18 @@
             try {
                 const res = await fetch('/chat/protocols/bulk-close', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ids: ids})
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: ids })
                 });
                 const data = await res.json();
                 alert(data.status);
-                
+
                 // Recarrega a lista fechando e abrindo o modal (simples refresh)
                 // Ou melhor, dispara o evento de show novamente
                 const modalEl = document.getElementById('protocolosModal');
                 const event = new Event('show.bs.modal');
                 modalEl.dispatchEvent(event);
-            } catch(e) { alert("Erro ao encerrar protocolos."); }
+            } catch (e) { alert("Erro ao encerrar protocolos."); }
         }
 
         // --- Lógica de Notificação de Chat ---
@@ -2068,7 +2070,7 @@
         });
 
         // --- Funções do Sistema de Atualização ---
-        const clientVersion = "1.1.0";
+        const clientVersion = "1.1.1"; // Lembre-se de alterar isso manualmente a cada update!
         document.getElementById('client-version-display').textContent = clientVersion;
 
         async function checkForUpdates() {
@@ -2097,8 +2099,37 @@
             modal.show();
         }
 
-        function performUpdate() {
-            location.reload(true);
+        async function performUpdate() {
+            const btn = document.querySelector('#updateDetailsModal .btn-success');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = "Baixando arquivos...";
+            }
+
+            try {
+                // Chama o backend para fazer o git pull
+                const res = await fetch('/system/git-pull', { method: 'POST' });
+                const data = await res.json();
+
+                if (data.erro) {
+                    alert("Atenção: " + data.erro);
+                    if(btn) {
+                        btn.disabled = false;
+                        btn.textContent = "Atualizar Agora";
+                    }
+                } else {
+                    alert("Arquivos atualizados!\nLog: " + data.log);
+                    // Só recarrega a página se a atualização der certo
+                    location.reload(true);
+                }
+            } catch (e) { 
+                console.error("Erro ao solicitar update:", e);
+                alert("Erro de conexão ao tentar atualizar.");
+                if(btn) {
+                    btn.disabled = false;
+                    btn.textContent = "Atualizar Agora";
+                }
+            }
         }
 
         async function publicarAtualizacao() {

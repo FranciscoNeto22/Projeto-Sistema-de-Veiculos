@@ -1,5 +1,6 @@
 # app.py
 import os
+import subprocess
 from fastapi import FastAPI, HTTPException, Form, Request, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
@@ -431,6 +432,22 @@ def publish_update(dados: AppVersionModel, request: Request, user: str = Depends
             status_code=403, detail="Apenas o desenvolvedor pode publicar atualizações.")
     return set_app_version(dados.version, dados.changelog)
 
+# --- Rota de Auto-Atualização (Git Pull) ---
+
+@app.post("/system/git-pull")
+def git_pull_system(user: str = Depends(get_logged_user)):
+    """Executa git pull para atualizar o código fonte no servidor."""
+    try:
+        # Tenta fazer stash de mudanças locais para evitar conflitos de merge
+        subprocess.run(["git", "stash"], shell=True, check=False)
+
+        # Executa o comando git pull e captura a saída
+        result = subprocess.check_output(["git", "pull"], shell=True, stderr=subprocess.STDOUT).decode('utf-8')
+        return {"status": "Sistema atualizado com sucesso!", "log": result}
+    except subprocess.CalledProcessError as e:
+        return {"erro": f"Erro ao atualizar via Git: {e.output.decode('utf-8')}"}
+    except Exception as e:
+        return {"erro": f"Erro inesperado: {str(e)}"}
 
 # --- Rota do Painel do Desenvolvedor ---
 
