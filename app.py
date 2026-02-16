@@ -1,4 +1,5 @@
 # app.py
+import os
 from fastapi import FastAPI, HTTPException, Form, Request, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
@@ -102,9 +103,11 @@ def on_startup():
 
 # Adicionar o middleware de sessão
 # É ESSENCIAL para que o login (request.session) funcione.
-# Troque "uma-chave-secreta" por algo seguro e aleatório em um projeto real.
+# A chave agora vem do ambiente ou usa uma padrão para testes locais
+secret_key = os.getenv("SECRET_KEY", "chave-padrao-desenvolvimento-123")
+
 app.add_middleware(SessionMiddleware,
-                   secret_key="uma-chave-secreta-muito-segura")
+                   secret_key=secret_key)
 
 
 # Configurar CORS
@@ -341,8 +344,9 @@ def close_protocol_endpoint(protocol_id: int, request: Request, user: str = Depe
     role = request.session.get("role")
     # Garante que cliente não possa encerrar
     if role not in ['dev', 'admin', 'gerente']:
-         raise HTTPException(status_code=403, detail="Apenas suporte pode encerrar.")
-    
+        raise HTTPException(
+            status_code=403, detail="Apenas suporte pode encerrar.")
+
     update_protocol_status(protocol_id, 'avaliando')
     return {"status": "Protocolo enviado para avaliação"}
 
@@ -361,9 +365,10 @@ def bulk_close_endpoint(dados: BulkCloseRequest, request: Request, user: str = D
     role = request.session.get("role")
     if role not in ['dev', 'admin']:
         raise HTTPException(status_code=403, detail="Acesso negado.")
-    
+
     result = close_protocols_bulk(dados.ids)
     return {"status": f"{result['count']} protocolos encerrados."}
+
 
 @app.get("/chat/last-message-id")
 def get_last_msg_id(user: str = Depends(get_logged_user)):
