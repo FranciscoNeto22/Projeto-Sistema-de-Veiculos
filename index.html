@@ -249,18 +249,32 @@
 <body>
 
     <!-- HEADER -->
-    <nav class="navbar navbar-dark bg-dark px-3">
-        <button class="btn btn-outline-light d-md-none me-2" type="button" data-bs-toggle="offcanvas"
-            data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu" aria-label="Abrir menu">☰</button>
-        <span class="navbar-brand mb-0 h1">🚗 AutoGate</span>
-
-        <!--Indicador de rede-->
-        <div id="status-rede" class="text-white">
-            <span>Rede</span>
-            <span id="bolinha-status" style="font-size: 1.6rem; line-height: 1;">•</span>
-            <span id="data-hora-atual" class="ms-2"></span>
+    <nav class="navbar navbar-dark bg-dark px-3 justify-content-between">
+        <div class="d-flex align-items-center">
+            <button class="btn btn-outline-light d-md-none me-2" type="button" data-bs-toggle="offcanvas"
+                data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu" aria-label="Abrir menu">☰</button>
+            <span class="navbar-brand mb-0 h1">🚗 AutoGate</span>
         </div>
-        <!-- Fim do indicador -->
+
+        <div class="d-flex align-items-center gap-3">
+            <!-- Widget Clima -->
+            <div id="widget-clima" class="d-none d-md-flex align-items-center text-white gap-2" title="Clima Local">
+                <span id="clima-icone" style="font-size: 1.4rem;">☁️</span>
+                <span id="clima-texto" class="fw-bold" style="font-size: 0.9rem;">--°C</span>
+            </div>
+
+            <!-- Widget Calendário -->
+            <div class="d-none d-md-flex align-items-center text-white gap-2 border-start border-end border-secondary px-3">
+                <span style="font-size: 1.2rem;">📅</span>
+                <span id="data-hora-atual" style="font-family: monospace; font-weight: bold; color: #ffffffcc;"></span>
+            </div>
+
+            <!-- Indicador de rede -->
+            <div id="status-rede" class="text-white d-flex align-items-center gap-1">
+                <span class="d-none d-sm-inline">Rede</span>
+                <span id="bolinha-status" style="font-size: 1.6rem; line-height: 1;">•</span>
+            </div>
+        </div>
     </nav>
 
     <div class="container-fluid">
@@ -616,6 +630,54 @@
         atualizarDataHora();
         setInterval(atualizarDataHora, 1000);
 
+        // --- Widget de Clima (Open-Meteo API) ---
+        async function carregarClima() {
+            const climaIcone = document.getElementById('clima-icone');
+            const climaTexto = document.getElementById('clima-texto');
+            
+            // Coordenadas padrão (Ex: São Paulo) caso geolocalização falhe
+            let lat = -23.5505;
+            let lon = -46.6333;
+
+            function atualizarInterfaceClima(temperatura, codigoClima) {
+                let icon = '☀️';
+                // Códigos WMO simplificados
+                if (codigoClima >= 1 && codigoClima <= 3) icon = '⛅'; // Nublado
+                if (codigoClima >= 45 && codigoClima <= 48) icon = '🌫️'; // Neblina
+                if (codigoClima >= 51 && codigoClima <= 67) icon = '🌧️'; // Chuva fraca
+                if (codigoClima >= 80 && codigoClima <= 99) icon = '⛈️'; // Tempestade/Chuva forte
+                
+                climaIcone.textContent = icon;
+                climaTexto.textContent = `${Math.round(temperatura)}°C`;
+            }
+
+            try {
+                // Tenta pegar localização do navegador
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(async (pos) => {
+                        lat = pos.coords.latitude;
+                        lon = pos.coords.longitude;
+                        buscarDadosClima(lat, lon);
+                    }, () => buscarDadosClima(lat, lon)); // Fallback se negar permissão
+                } else {
+                    buscarDadosClima(lat, lon);
+                }
+            } catch (e) { console.error("Erro geo:", e); }
+
+            async function buscarDadosClima(latitude, longitude) {
+                try {
+                    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+                    const data = await res.json();
+                    if (data.current_weather) {
+                        atualizarInterfaceClima(data.current_weather.temperature, data.current_weather.weathercode);
+                    }
+                } catch (error) {
+                    console.error("Erro ao carregar clima:", error);
+                    climaTexto.textContent = "N/A";
+                }
+            }
+        }
+
         // 3. Buscar veículos da API e atualizar tabela
         async function carregarVeiculos() {
             try {
@@ -745,6 +807,7 @@
             carregarLayoutSalvo(); // Carrega o CSS do banco
             carregarConfigVisual(); // Carrega as edições visuais (textos/cores)
             checkForUpdates(); // Verifica se há nova versão
+            carregarClima(); // Carrega o clima
         });
 
         // Atualizar veículos a cada 5 segundos

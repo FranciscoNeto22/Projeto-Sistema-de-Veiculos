@@ -434,20 +434,32 @@ def publish_update(dados: AppVersionModel, request: Request, user: str = Depends
 
 # --- Rota de Auto-Atualização (Git Pull) ---
 
+
 @app.post("/system/git-pull")
 def git_pull_system(user: str = Depends(get_logged_user)):
-    """Executa git pull para atualizar o código fonte no servidor."""
+    """Executa um reset forçado para atualizar o código com a versão do GitHub."""
     try:
-        # Tenta fazer stash de mudanças locais para evitar conflitos de merge
-        subprocess.run(["git", "stash"], shell=True, check=False)
+        # 1. Busca as últimas informações do repositório remoto.
+        subprocess.check_output(
+            ["git", "fetch"], shell=True, stderr=subprocess.STDOUT)
 
-        # Executa o comando git pull e captura a saída
-        result = subprocess.check_output(["git", "pull"], shell=True, stderr=subprocess.STDOUT).decode('utf-8')
-        return {"status": "Sistema atualizado com sucesso!", "log": result}
+        # 2. Tenta fazer o reset para o branch 'main'.
+        result = subprocess.check_output(
+            ["git", "reset", "--hard", "origin/main"], shell=True, stderr=subprocess.STDOUT)
+        log_message = result.decode('utf-8')
+        return {"status": "Sistema atualizado com sucesso!", "log": log_message}
     except subprocess.CalledProcessError as e:
-        return {"erro": f"Erro ao atualizar via Git: {e.output.decode('utf-8')}"}
+        # Se falhar com 'main', tenta com 'master' como alternativa.
+        try:
+            result = subprocess.check_output(
+                ["git", "reset", "--hard", "origin/master"], shell=True, stderr=subprocess.STDOUT)
+            log_message = result.decode('utf-8')
+            return {"status": "Sistema atualizado com sucesso (usando branch 'master')!", "log": log_message}
+        except subprocess.CalledProcessError as e2:
+            error_output = e2.output.decode('utf-8')
+            return {"erro": f"Falha ao atualizar. Não foi possível encontrar 'origin/main' ou 'origin/master'. Detalhes: {error_output}"}
     except Exception as e:
-        return {"erro": f"Erro inesperado: {str(e)}"}
+        return {"erro": f"Erro inesperado durante a atualização: {str(e)}"}
 
 # --- Rota do Painel do Desenvolvedor ---
 
