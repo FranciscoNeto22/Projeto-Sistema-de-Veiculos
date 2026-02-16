@@ -265,8 +265,10 @@
 
             <!-- Widget Calendário -->
             <div class="d-none d-md-flex align-items-center text-white gap-2 border-start border-end border-secondary px-3">
+            <div class="d-none d-md-flex align-items-center text-white gap-2 border-start border-end border-secondary px-3" style="cursor: pointer;" onclick="abrirCalendarioNav()" title="Clique para abrir o calendário">
                 <span style="font-size: 1.2rem;">📅</span>
                 <span id="data-hora-atual" style="font-family: monospace; font-weight: bold; color: #ffffffcc;"></span>
+                <input type="date" id="nav-datepicker" style="position: absolute; opacity: 0; width: 0; height: 0; top: 0;" onchange="filtrarPorData(this.value)">
             </div>
 
             <!-- Indicador de rede -->
@@ -629,6 +631,24 @@
         }
         atualizarDataHora();
         setInterval(atualizarDataHora, 1000);
+
+        // --- Função para abrir o calendário do Navbar ---
+        function abrirCalendarioNav() {
+            const input = document.getElementById('nav-datepicker');
+            if (input) {
+                try {
+                    input.showPicker(); // Método moderno (Chrome 99+, Firefox 101+)
+                } catch (e) {
+                    console.warn("showPicker não suportado, tentando foco manual.");
+                    input.click(); // Tentativa de fallback
+                }
+            }
+        }
+
+        function filtrarPorData(data) {
+            // Aqui você pode implementar a lógica de filtro
+            alert("Data selecionada: " + data + "\n(Implemente a lógica de filtro aqui se desejar)");
+        }
 
         // --- Widget de Clima (Open-Meteo API) ---
         async function carregarClima() {
