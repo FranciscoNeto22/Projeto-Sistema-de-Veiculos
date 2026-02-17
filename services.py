@@ -294,23 +294,20 @@ def setup_usuarios():
                 "INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", ('neto@dev.com', dev_pass_hash, 'dev'))
 
         # --- FIXO: USUÁRIO DO COLEGA (Para não sumir nas atualizações) ---
-        cursor.execute(
-            "SELECT id FROM usuarios WHERE username = 'rother'")
-        if not cursor.fetchone():
-            # Troque 'SENHA_DO_COLEGA' pela senha dele
-            pass_hash_colega = get_hash_senha("784512")
-            cursor.execute("INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)",
-                           ('rother', pass_hash_colega, 'admin'))
+        pass_hash_colega = get_hash_senha("784512")
+        cursor.execute("SELECT id FROM usuarios WHERE username = 'rother'")
 
-    # Garante que o arquivo CSV de backup exista na pasta do projeto
-    arquivo_csv = get_backup_file_path()
-    if not os.path.exists(arquivo_csv):
-        try:
-            with open(arquivo_csv, mode='w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f, delimiter=';')
-                writer.writerow(["Data", "Acao", "Login", "Senha", "Cargo"])
-        except Exception as e:
-            print(f"Erro ao criar CSV inicial: {e}")
+        if cursor.fetchone():
+            # Se já existe, ATUALIZA a senha (para corrigir caso esteja errada no banco)
+            cursor.execute(
+                "UPDATE usuarios SET password_hash = ?, role = 'operador' WHERE username = 'rother'", (pass_hash_colega,))
+        else:
+            # Se não existe, CRIA
+            cursor.execute("INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)",
+                           ('rother', pass_hash_colega, 'operador'))
+
+    # Exporta todos os usuários para o CSV para garantir sincronia
+    exportar_usuarios_para_csv()
 
 
 def criar_usuario(username, password, role='operador'):
@@ -685,6 +682,27 @@ def get_backup_file_path():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "usuarios_backup.csv")
 
 
+def exportar_usuarios_para_csv():
+    """Reescreve o arquivo CSV com todos os usuários atuais do banco."""
+    arquivo = get_backup_file_path()
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT username, role FROM usuarios")
+            users = cursor.fetchall()
+
+        with open(arquivo, mode='w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f, delimiter=';')
+            writer.writerow(["Data", "Acao", "Login", "Senha", "Cargo"])
+
+            data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            for row in users:
+                writer.writerow(
+                    [data_hora, "SINC_AUTO", row[0], "MANTIDA", row[1]])
+    except Exception as e:
+        print(f"Erro ao exportar CSV: {e}")
+
+
 def log_usuario_csv(username, password, role, acao):
     """Registra usuários em um arquivo CSV que pode ser aberto no Excel."""
     arquivo = get_backup_file_path()
@@ -721,20 +739,25 @@ def importar_usuarios_csv():
                     pwd = row.get("Senha")
                     role = row.get("Cargo")  # Antes era "Role"
 
-                    if user and pwd and pwd != "MANTIDA":
+                    if user:
                         # Verifica se usuario existe
                         cursor.execute(
                             "SELECT id FROM usuarios WHERE username = ?", (user,))
                         exists = cursor.fetchone()
 
-                        hash_senha = get_hash_senha(pwd)
-
                         if exists:
-                            cursor.execute(
-                                "UPDATE usuarios SET password_hash = ?, role = ? WHERE username = ?", (hash_senha, role, user))
+                            if pwd and pwd != "MANTIDA":
+                                hash_senha = get_hash_senha(pwd)
+                                cursor.execute(
+                                    "UPDATE usuarios SET password_hash = ?, role = ? WHERE username = ?", (hash_senha, role, user))
+                            else:
+                                cursor.execute(
+                                    "UPDATE usuarios SET role = ? WHERE username = ?", (role, user))
                         else:
-                            cursor.execute(
-                                "INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", (user, hash_senha, role))
+                            if pwd and pwd != "MANTIDA":
+                                hash_senha = get_hash_senha(pwd)
+                                cursor.execute(
+                                    "INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", (user, hash_senha, role))
                         count += 1
             conn.commit()
         return {"status": f"Sincronização concluída! {count} registros processados."}
