@@ -22,6 +22,7 @@ from services import (
     criar_usuario,
     listar_usuarios,
     excluir_usuario,
+    atualizar_usuario,
     executar_sql_raw,
     salvar_css_personalizado,
     ler_css_personalizado,
@@ -31,7 +32,8 @@ from services import (
     create_protocol_and_message, list_protocols,
     get_protocol_by_id,
     set_app_version,
-    get_app_version,
+    get_app_version, 
+    importar_usuarios_csv,
     update_protocol_status, get_global_last_message_id,
     close_protocols_bulk
 )
@@ -273,6 +275,14 @@ def novo_usuario(dados: UsuarioModel, request: Request, user: str = Depends(get_
             status_code=403, detail="Apenas gerentes podem criar usuários.")
     return criar_usuario(dados.username, dados.password, dados.role)
 
+@app.put("/usuarios/{user_id}")
+def api_atualizar_usuario(user_id: int, dados: UsuarioModel, request: Request, user: str = Depends(get_logged_user)):
+    role = request.session.get("role")
+    if role not in ['gerente', 'admin']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    # Passamos a senha (pode ser vazia se não for alterar)
+    return atualizar_usuario(user_id, dados.username, dados.password, dados.role)
+
 
 @app.delete("/usuarios/{user_id}")
 def api_excluir_usuario(user_id: int, request: Request, user: str = Depends(get_logged_user)):
@@ -280,6 +290,14 @@ def api_excluir_usuario(user_id: int, request: Request, user: str = Depends(get_
     if role not in ['gerente', 'admin']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     return excluir_usuario(user_id)
+
+@app.post("/usuarios/importar")
+def api_importar_usuarios(request: Request, user: str = Depends(get_logged_user)):
+    role = request.session.get("role")
+    if role not in ['gerente', 'admin']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    return importar_usuarios_csv()
+
 
 # --- Rotas do Chat (Nova Lógica com Protocolos) ---
 

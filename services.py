@@ -1,4 +1,6 @@
 # services.py
+import csv
+import os
 import sqlite3
 from datetime import datetime
 from typing import Optional
@@ -299,6 +301,8 @@ def criar_usuario(username, password, role='operador'):
             hash_senha = get_hash_senha(password)
             cursor.execute(
                 "INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", (username, hash_senha, role))
+            # Salva no backup CSV (Excel)
+            log_usuario_csv(username, password, role, "CRIADO")
             return {"status": "Usuário criado com sucesso!"}
         except sqlite3.IntegrityError:
             return {"erro": "Nome de usuário já existe."}
@@ -326,6 +330,34 @@ def excluir_usuario(user_id):
         cursor.execute("DELETE FROM usuarios WHERE id = ?", (user_id,))
         return {"status": "Usuário excluído."}
 
+
+def atualizar_usuario(user_id, username, password, role):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        
+        # Verifica se o username já existe para OUTRO usuário (evitar duplicatas)
+        cursor.execute("SELECT id FROM usuarios WHERE username = ? AND id != ?", (username, user_id))
+        if cursor.fetchone():
+            return {"erro": "Nome de usuário já existe."}
+
+        # Se a senha foi fornecida (não vazia), atualiza tudo (com hash)
+        if password and password.strip():
+            hash_senha = get_hash_senha(password)
+            cursor.execute("""
+                UPDATE usuarios SET username = ?, password_hash = ?, role = ? WHERE id = ?
+            """, (username, hash_senha, role, user_id))
+            log_usuario_csv(username, password, role, "ATUALIZADO")
+        else:
+            # Se não, atualiza apenas dados cadastrais, mantendo a senha antiga
+            cursor.execute("""
+                UPDATE usuarios SET username = ?, role = ? WHERE id = ?
+            """, (username, role, user_id))
+            log_usuario_csv(username, "MANTIDA", role, "ATUALIZADO")
+            
+        if cursor.rowcount == 0:
+            return {"erro": "Usuário não encontrado."}
+            
+    return {"status": "Usuário atualizado com sucesso!"}
 
 def verificar_senha(senha_plana, senha_hash):
     # Converte para bytes se for string, pois o bcrypt exige bytes
@@ -618,3 +650,57 @@ def obter_estatisticas():
         "visitantes": visitantes,
         "pendentes": pendentes,
     }
+
+# --- Funções de Backup/Sync Excel (CSV) ---
+
+def log_usuario_csv(username, password, role, acao):
+    """Registra usuários em um arquivo CSV que pode ser aberto no Excel."""
+    arquivo = "usuarios_backup.csv"
+    existe = os.path.exists(arquivo)
+    
+    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    
+    try:
+        # Usa ponto e vírgula como separador para o Excel brasileiro reconhecer colunas
+        with open(arquivo, mode='a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f, delimiter=';')
+            if not existe:
+                writer.writerow(["Data", "Acao", "Usuario", "Senha", "Role"])
+            
+            writer.writerow([data_hora, acao, username, password, role])
+    except Exception as e:
+        print(f"Erro ao salvar log CSV: {e}")
+
+def importar_usuarios_csv():
+    """Lê o arquivo CSV e atualiza/cria os usuários no banco de dados."""
+    arquivo = "usuarios_backup.csv"
+    if not os.path.exists(arquivo):
+        return {"erro": "Arquivo usuarios_backup.csv não encontrado."}
+
+    count = 0
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            with open(arquivo, mode='r', encoding='utf-8') as f:
+                reader = csv.DictReader(f, delimiter=';')
+                for row in reader:
+                    user = row.get("Usuario")
+                    pwd = row.get("Senha")
+                    role = row.get("Role")
+
+                    if user and pwd and pwd != "MANTIDA":
+                        # Verifica se usuario existe
+                        cursor.execute("SELECT id FROM usuarios WHERE username = ?", (user,))
+                        exists = cursor.fetchone()
+                        
+                        hash_senha = get_hash_senha(pwd)
+                        
+                        if exists:
+                            cursor.execute("UPDATE usuarios SET password_hash = ?, role = ? WHERE username = ?", (hash_senha, role, user))
+                        else:
+                            cursor.execute("INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", (user, hash_senha, role))
+                        count += 1
+            conn.commit()
+        return {"status": f"Sincronização concluída! {count} registros processados."}
+    except Exception as e:
+        return {"erro": f"Erro ao importar: {str(e)}"}

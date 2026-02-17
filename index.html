@@ -1391,10 +1391,15 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="alert alert-info small">
+                        <p class="mb-1"><strong>Dica:</strong> Se os usuários sumiram, use o botão abaixo para restaurar do arquivo de backup.</p>
+                        <button class="btn btn-sm btn-light border" onclick="importarUsuariosExcel()">📂 Importar/Restaurar do Excel (CSV)</button>
+                    </div>
                     <!-- Formulário de Criação -->
                     <div class="card mb-3">
                         <div class="card-body bg-light">
-                            <h6>Novo Usuário</h6>
+                            <h6 id="tituloFormUsuario">Novo Usuário</h6>
+                            <input type="hidden" id="editUserId">
                             <div class="mb-2">
                                 <input type="text" id="novoUser" class="form-control mb-2"
                                     placeholder="Usuário (Login)">
@@ -1404,7 +1409,11 @@
                                     <option value="gerente">Gerente</option>
                                     <option value="admin">Admin</option>
                                 </select>
-                                <button class="btn btn-success w-100" onclick="criarUsuario()">Criar Usuário</button>
+                                <div class="d-flex gap-2">
+                                    <button id="btnCriarUsuario" class="btn btn-success w-100" onclick="criarUsuario()">Criar Usuário</button>
+                                    <button id="btnSalvarUsuario" class="btn btn-primary w-100 d-none" onclick="salvarEdicaoUsuario()">Salvar Alterações</button>
+                                    <button id="btnCancelarEdicao" class="btn btn-secondary d-none" onclick="cancelarEdicaoUsuario()">Cancelar</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1435,7 +1444,11 @@
                     li.className = 'list-group-item d-flex justify-content-between align-items-center';
                     li.innerHTML = `
                     <span><strong>${u.username}</strong> <span class="badge bg-secondary">${u.role}</span></span>
-                    ${u.username !== 'admin' ? `<button class="btn btn-sm btn-outline-danger" onclick="deletarUsuario(${u.id})">Excluir</button>` : ''}
+                    ${u.username !== 'admin' ? `
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-primary" onclick="prepararEdicaoUsuario(${u.id}, '${u.username}', '${u.role}')">Editar</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deletarUsuario(${u.id})">Excluir</button>
+                        </div>` : ''}
                 `;
                     lista.appendChild(li);
                 });
@@ -1465,9 +1478,66 @@
             }
         }
 
+        function prepararEdicaoUsuario(id, username, role) {
+            document.getElementById('editUserId').value = id;
+            document.getElementById('novoUser').value = username;
+            document.getElementById('novoRole').value = role;
+            document.getElementById('novoPass').value = '';
+            document.getElementById('novoPass').placeholder = 'Deixe vazio para manter a senha atual';
+            
+            document.getElementById('tituloFormUsuario').textContent = 'Editar Usuário';
+            document.getElementById('btnCriarUsuario').classList.add('d-none');
+            document.getElementById('btnSalvarUsuario').classList.remove('d-none');
+            document.getElementById('btnCancelarEdicao').classList.remove('d-none');
+        }
+
+        function cancelarEdicaoUsuario() {
+            document.getElementById('editUserId').value = '';
+            document.getElementById('novoUser').value = '';
+            document.getElementById('novoRole').value = 'operador';
+            document.getElementById('novoPass').value = '';
+            document.getElementById('novoPass').placeholder = 'Senha';
+            
+            document.getElementById('tituloFormUsuario').textContent = 'Novo Usuário';
+            document.getElementById('btnCriarUsuario').classList.remove('d-none');
+            document.getElementById('btnSalvarUsuario').classList.add('d-none');
+            document.getElementById('btnCancelarEdicao').classList.add('d-none');
+        }
+
+        async function salvarEdicaoUsuario() {
+            const id = document.getElementById('editUserId').value;
+            const username = document.getElementById('novoUser').value;
+            const password = document.getElementById('novoPass').value;
+            const role = document.getElementById('novoRole').value;
+
+            if (!username) return alert('O nome de usuário é obrigatório.');
+
+            const res = await fetch(`/usuarios/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, role })
+            });
+            const data = await res.json();
+            alert(data.status || data.erro);
+            
+            if (res.ok) {
+                cancelarEdicaoUsuario();
+                carregarUsuarios();
+            }
+        }
+
         async function deletarUsuario(id) {
             if (!confirm('Excluir este usuário?')) return;
             const res = await fetch(`/usuarios/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            alert(data.status || data.erro);
+            carregarUsuarios();
+        }
+
+        async function importarUsuariosExcel() {
+            if(!confirm("Isso irá ler o arquivo 'usuarios_backup.csv' e atualizar/criar os usuários no banco de dados. Deseja continuar?")) return;
+            
+            const res = await fetch('/usuarios/importar', { method: 'POST' });
             const data = await res.json();
             alert(data.status || data.erro);
             carregarUsuarios();
