@@ -1,5 +1,6 @@
 # app.py
 import os
+import uvicorn
 import subprocess
 from fastapi import FastAPI, HTTPException, Form, Request, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -532,3 +533,7 @@ def api_server_status(user: str = Depends(get_logged_user)):
         "db_status": health['db_status'],
         "server_time": now.strftime("%H:%M:%S")
     }
+
+if __name__ == "__main__":
+    # Permite acesso externo (celular) na porta 8000
+    uvicorn.run(app, host="0.0.0.0", port=8000)
