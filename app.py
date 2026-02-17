@@ -35,7 +35,8 @@ from services import (
     get_app_version, 
     importar_usuarios_csv,
     update_protocol_status, get_global_last_message_id,
-    close_protocols_bulk
+    close_protocols_bulk,
+    get_system_health
 )
 
 
@@ -97,10 +98,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def favicon():
     return Response(status_code=204)
 
+from datetime import datetime
+START_TIME = datetime.now()
 
 @app.on_event("startup")
 def on_startup():
     # Cria o usuário 'admin' com senha 'admin' no primeiro boot
+    global START_TIME
+    START_TIME = datetime.now()
     setup_usuarios()
 
 
@@ -502,3 +507,28 @@ def run_sql(dados: SqlQuery, request: Request, user: str = Depends(get_logged_us
         raise HTTPException(
             status_code=403, detail="Acesso negado. Apenas admin.")
     return executar_sql_raw(dados.query)
+
+# --- Rota do APP de Monitoramento (Mobile PWA) ---
+
+@app.get("/monitor")
+def monitor_panel(request: Request, user: str = Depends(get_logged_user)):
+    role = request.session.get("role")
+    if role not in ["admin", "dev"]:
+        return RedirectResponse(url="/app")
+    return FileResponse("monitor.html")
+
+@app.get("/api/server-status")
+def api_server_status(user: str = Depends(get_logged_user)):
+    # Calcula tempo de atividade (Uptime)
+    now = datetime.now()
+    uptime = now - START_TIME
+    
+    # Dados do sistema
+    health = get_system_health()
+    
+    return {
+        "uptime": str(uptime).split('.')[0], # Remove milissegundos
+        "db_size": f"{health['db_size_mb']} MB",
+        "db_status": health['db_status'],
+        "server_time": now.strftime("%H:%M:%S")
+    }

@@ -763,3 +763,15 @@ def importar_usuarios_csv():
         return {"status": f"Sincronização concluída! {count} registros processados."}
     except Exception as e:
         return {"erro": f"Erro ao importar: {str(e)}"}
+
+def get_system_health():
+    """Retorna dados técnicos sobre o servidor e banco de dados."""
+    db_path = "estacionamento.db"
+    db_size = 0
+    if os.path.exists(db_path):
+        db_size = os.path.getsize(db_path) / (1024 * 1024) # Tamanho em MB
+    
+    return {
+        "db_size_mb": round(db_size, 2),
+        "db_status": "Conectado" if os.path.exists(db_path) else "Erro"
+    }

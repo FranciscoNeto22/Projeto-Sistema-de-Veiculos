@@ -338,6 +338,9 @@
                         <div class="nav-link text-success" data-bs-toggle="modal" data-bs-target="#publishUpdateModal">
                             🚀 Publicar Update</div>
                     </li>
+                    <li class="nav-item d-none" id="menu-dev-monitor">
+                        <a class="nav-link text-white bg-danger rounded mt-2" href="/monitor">📟 Monitor Server</a>
+                    </li>
                     <li class="nav-item mt-4">
                         <a class="nav-link text-danger" href="/logout">Sair</a>
                     </li>
@@ -389,6 +392,9 @@
                         <li class="nav-item d-none" id="menu-dev-update-mobile">
                             <div class="nav-link text-success" data-bs-toggle="modal"
                                 data-bs-target="#publishUpdateModal">🚀 Update</div>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-monitor-mobile">
+                            <a class="nav-link text-danger fw-bold" href="/monitor">📟 Monitor Server</a>
                         </li>
                         <li class="nav-item mt-4">
                             <a class="nav-link text-danger" href="/logout">Sair</a>
@@ -825,8 +831,8 @@
                     }
                     // Se for DEV, mostra menu de edição de layout
                     if (data.role === 'dev') {
-                        ['menu-dev', 'menu-dev-protocolos', 'menu-dev-update'].forEach(id => document.getElementById(id).classList.remove('d-none'));
-                        ['menu-dev-mobile', 'menu-dev-protocolos-mobile', 'menu-dev-update-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
+                        ['menu-dev', 'menu-dev-protocolos', 'menu-dev-update', 'menu-dev-monitor'].forEach(id => document.getElementById(id).classList.remove('d-none'));
+                        ['menu-dev-mobile', 'menu-dev-protocolos-mobile', 'menu-dev-update-mobile', 'menu-dev-monitor-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
                     } else if (data.role === 'admin') {
                         // Admin também pode ver protocolos
                         ['menu-dev-protocolos', 'menu-dev-protocolos-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
