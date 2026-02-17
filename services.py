@@ -293,6 +293,25 @@ def setup_usuarios():
             cursor.execute(
                 "INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", ('neto@dev.com', dev_pass_hash, 'dev'))
 
+        # --- FIXO: USUÁRIO DO COLEGA (Para não sumir nas atualizações) ---
+        cursor.execute(
+            "SELECT id FROM usuarios WHERE username = 'LOGIN_DO_COLEGA'")
+        if not cursor.fetchone():
+            # Troque 'SENHA_DO_COLEGA' pela senha dele
+            pass_hash_colega = get_hash_senha("784512")
+            cursor.execute("INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)",
+                           ('rother', pass_hash_colega, 'admin'))
+
+    # Garante que o arquivo CSV de backup exista na pasta do projeto
+    arquivo_csv = get_backup_file_path()
+    if not os.path.exists(arquivo_csv):
+        try:
+            with open(arquivo_csv, mode='w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f, delimiter=';')
+                writer.writerow(["Data", "Acao", "Login", "Senha", "Cargo"])
+        except Exception as e:
+            print(f"Erro ao criar CSV inicial: {e}")
+
 
 def criar_usuario(username, password, role='operador'):
     with get_db_connection() as conn:
@@ -334,9 +353,10 @@ def excluir_usuario(user_id):
 def atualizar_usuario(user_id, username, password, role):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        
+
         # Verifica se o username já existe para OUTRO usuário (evitar duplicatas)
-        cursor.execute("SELECT id FROM usuarios WHERE username = ? AND id != ?", (username, user_id))
+        cursor.execute(
+            "SELECT id FROM usuarios WHERE username = ? AND id != ?", (username, user_id))
         if cursor.fetchone():
             return {"erro": "Nome de usuário já existe."}
 
@@ -353,11 +373,12 @@ def atualizar_usuario(user_id, username, password, role):
                 UPDATE usuarios SET username = ?, role = ? WHERE id = ?
             """, (username, role, user_id))
             log_usuario_csv(username, "MANTIDA", role, "ATUALIZADO")
-            
+
         if cursor.rowcount == 0:
             return {"erro": "Usuário não encontrado."}
-            
+
     return {"status": "Usuário atualizado com sucesso!"}
+
 
 def verificar_senha(senha_plana, senha_hash):
     # Converte para bytes se for string, pois o bcrypt exige bytes
@@ -421,7 +442,8 @@ def get_protocol_by_id(protocol_id):
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM chat_protocolos WHERE id = ?", (protocol_id,))
+        cursor.execute(
+            "SELECT * FROM chat_protocolos WHERE id = ?", (protocol_id,))
         return cursor.fetchone()
 
 
@@ -494,19 +516,22 @@ def get_protocols_for_user_history(username):
         )
         return [dict(row) for row in cursor.fetchall()]
 
+
 def update_protocol_status(protocol_id, status):
     """Atualiza o status de um protocolo (ex: 'avaliando', 'fechado')."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE chat_protocolos SET status = ? WHERE id = ?", (status, protocol_id))
+        cursor.execute(
+            "UPDATE chat_protocolos SET status = ? WHERE id = ?", (status, protocol_id))
         conn.commit()
     return {"status": "updated"}
+
 
 def close_protocols_bulk(protocol_ids):
     """Encerra múltiplos protocolos de uma vez (sem avaliação)."""
     if not protocol_ids:
         return {"count": 0}
-    
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         placeholders = ','.join('?' for _ in protocol_ids)
@@ -514,6 +539,7 @@ def close_protocols_bulk(protocol_ids):
         cursor.execute(sql, protocol_ids)
         conn.commit()
         return {"count": cursor.rowcount}
+
 
 def get_global_last_message_id():
     """Retorna o ID da última mensagem do sistema para verificação de notificações globais."""
@@ -653,27 +679,34 @@ def obter_estatisticas():
 
 # --- Funções de Backup/Sync Excel (CSV) ---
 
+
+def get_backup_file_path():
+    """Retorna o caminho absoluto do arquivo CSV na pasta do projeto."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "usuarios_backup.csv")
+
+
 def log_usuario_csv(username, password, role, acao):
     """Registra usuários em um arquivo CSV que pode ser aberto no Excel."""
-    arquivo = "usuarios_backup.csv"
+    arquivo = get_backup_file_path()
     existe = os.path.exists(arquivo)
-    
+
     data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    
+
     try:
         # Usa ponto e vírgula como separador para o Excel brasileiro reconhecer colunas
         with open(arquivo, mode='a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f, delimiter=';')
             if not existe:
-                writer.writerow(["Data", "Acao", "Usuario", "Senha", "Role"])
-            
+                writer.writerow(["Data", "Acao", "Login", "Senha", "Cargo"])
+
             writer.writerow([data_hora, acao, username, password, role])
     except Exception as e:
         print(f"Erro ao salvar log CSV: {e}")
 
+
 def importar_usuarios_csv():
     """Lê o arquivo CSV e atualiza/cria os usuários no banco de dados."""
-    arquivo = "usuarios_backup.csv"
+    arquivo = get_backup_file_path()
     if not os.path.exists(arquivo):
         return {"erro": "Arquivo usuarios_backup.csv não encontrado."}
 
@@ -684,21 +717,24 @@ def importar_usuarios_csv():
             with open(arquivo, mode='r', encoding='utf-8') as f:
                 reader = csv.DictReader(f, delimiter=';')
                 for row in reader:
-                    user = row.get("Usuario")
+                    user = row.get("Login")  # Antes era "Usuario"
                     pwd = row.get("Senha")
-                    role = row.get("Role")
+                    role = row.get("Cargo")  # Antes era "Role"
 
                     if user and pwd and pwd != "MANTIDA":
                         # Verifica se usuario existe
-                        cursor.execute("SELECT id FROM usuarios WHERE username = ?", (user,))
+                        cursor.execute(
+                            "SELECT id FROM usuarios WHERE username = ?", (user,))
                         exists = cursor.fetchone()
-                        
+
                         hash_senha = get_hash_senha(pwd)
-                        
+
                         if exists:
-                            cursor.execute("UPDATE usuarios SET password_hash = ?, role = ? WHERE username = ?", (hash_senha, role, user))
+                            cursor.execute(
+                                "UPDATE usuarios SET password_hash = ?, role = ? WHERE username = ?", (hash_senha, role, user))
                         else:
-                            cursor.execute("INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", (user, hash_senha, role))
+                            cursor.execute(
+                                "INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", (user, hash_senha, role))
                         count += 1
             conn.commit()
         return {"status": f"Sincronização concluída! {count} registros processados."}
