@@ -295,7 +295,7 @@ def setup_usuarios():
 
         # --- FIXO: USUÁRIO DO COLEGA (Para não sumir nas atualizações) ---
         cursor.execute(
-            "SELECT id FROM usuarios WHERE username = 'LOGIN_DO_COLEGA'")
+            "SELECT id FROM usuarios WHERE username = 'rother'")
         if not cursor.fetchone():
             # Troque 'SENHA_DO_COLEGA' pela senha dele
             pass_hash_colega = get_hash_senha("784512")
