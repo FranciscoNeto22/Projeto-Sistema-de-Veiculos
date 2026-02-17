@@ -240,6 +240,24 @@
             font-size: 0.7rem;
             color: #6c757d;
         }
+
+        /* Widget Calendário Estilizado */
+        #widget-calendario {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50px; /* Bordas bem arredondadas (Pill) */
+            padding: 5px 15px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            user-select: none;
+        }
+
+        #widget-calendario:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
     </style>
     <!-- Fim dos estilos adicionados -->
     <!-- Local onde o CSS personalizado será injetado -->
@@ -264,10 +282,9 @@
             </div>
 
             <!-- Widget Calendário -->
-            <div class="d-none d-md-flex align-items-center text-white gap-2 border-start border-end border-secondary px-3">
-            <div class="d-none d-md-flex align-items-center text-white gap-2 border-start border-end border-secondary px-3" style="cursor: pointer;" onclick="abrirCalendarioNav()" title="Clique para abrir o calendário">
+            <div id="widget-calendario" class="d-none d-md-flex align-items-center text-white gap-2" onclick="abrirCalendarioNav()" title="Clique para abrir o calendário">
                 <span style="font-size: 1.2rem;">📅</span>
-                <span id="data-hora-atual" style="font-family: monospace; font-weight: bold; color: #ffffffcc;"></span>
+                <span id="data-hora-atual" style="font-family: monospace; font-weight: bold; color: #fff;"></span>
                 <input type="date" id="nav-datepicker" style="position: absolute; opacity: 0; width: 0; height: 0; top: 0;" onchange="filtrarPorData(this.value)">
             </div>
 
