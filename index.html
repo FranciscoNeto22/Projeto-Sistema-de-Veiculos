@@ -819,7 +819,7 @@
                     currentUser.role = data.role;
 
                     // Se for admin ou gerente, mostra menu de usuários
-                    if (data.role === 'admin' || data.role === 'gerente') {
+                    if (data.role === 'admin' || data.role === 'gerente' || data.role === 'dev') {
                         document.getElementById('menu-usuarios').classList.remove('d-none');
                         document.getElementById('menu-usuarios-mobile').classList.remove('d-none');
                     }

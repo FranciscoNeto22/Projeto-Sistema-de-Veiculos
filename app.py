@@ -262,7 +262,7 @@ def estatisticas(user: str = Depends(get_logged_user)):
 @app.get("/usuarios")
 def api_listar_usuarios(request: Request, user: str = Depends(get_logged_user)):
     role = request.session.get("role")
-    if role not in ['gerente', 'admin']:
+    if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     return listar_usuarios()
 
@@ -270,7 +270,7 @@ def api_listar_usuarios(request: Request, user: str = Depends(get_logged_user)):
 @app.post("/usuarios")
 def novo_usuario(dados: UsuarioModel, request: Request, user: str = Depends(get_logged_user)):
     role = request.session.get("role")
-    if role not in ['gerente', 'admin']:
+    if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(
             status_code=403, detail="Apenas gerentes podem criar usuários.")
     return criar_usuario(dados.username, dados.password, dados.role)
@@ -278,7 +278,7 @@ def novo_usuario(dados: UsuarioModel, request: Request, user: str = Depends(get_
 @app.put("/usuarios/{user_id}")
 def api_atualizar_usuario(user_id: int, dados: UsuarioModel, request: Request, user: str = Depends(get_logged_user)):
     role = request.session.get("role")
-    if role not in ['gerente', 'admin']:
+    if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     # Passamos a senha (pode ser vazia se não for alterar)
     return atualizar_usuario(user_id, dados.username, dados.password, dados.role)
@@ -287,14 +287,14 @@ def api_atualizar_usuario(user_id: int, dados: UsuarioModel, request: Request, u
 @app.delete("/usuarios/{user_id}")
 def api_excluir_usuario(user_id: int, request: Request, user: str = Depends(get_logged_user)):
     role = request.session.get("role")
-    if role not in ['gerente', 'admin']:
+    if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     return excluir_usuario(user_id)
 
 @app.post("/usuarios/importar")
 def api_importar_usuarios(request: Request, user: str = Depends(get_logged_user)):
     role = request.session.get("role")
-    if role not in ['gerente', 'admin']:
+    if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     return importar_usuarios_csv()
 
