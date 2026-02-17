@@ -91,7 +91,9 @@
                 <span id="server-dot" class="status-dot offline"></span>
                 <span id="server-text" class="fw-bold ms-2">Desconectado</span>
             </div>
-            <div class="mt-2">Ping: <span id="ping-val" class="fw-bold text-success">--</span> ms</div>
+            <div class="mt-3 text-white" style="font-size: 0.9rem; font-weight: bold;">PING: <span
+                    id="ping-val">--</span>
+                ms</div>
         </div>
     </div>
 
@@ -176,10 +178,10 @@
 
                 // Indicador de qualidade da rede baseado no ping
                 const netBar = document.getElementById('net-bar');
-                pingSpan.className = 'fw-bold'; // Reseta classes de cor
-                if (latency < 100) { netBar.style.width = '100%'; netBar.className = 'progress-bar bg-success'; pingSpan.classList.add('text-success'); }
-                else if (latency < 500) { netBar.style.width = '70%'; netBar.className = 'progress-bar bg-warning'; pingSpan.classList.add('text-warning'); }
-                else { netBar.style.width = '30%'; netBar.className = 'progress-bar bg-danger'; pingSpan.classList.add('text-danger'); }
+                // A classe 'fw-bold' foi movida para o elemento pai para destacar toda a linha.
+                if (latency < 100) { netBar.style.width = '100%'; netBar.className = 'progress-bar bg-success'; pingSpan.className = 'text-success fw-bold'; }
+                else if (latency < 500) { netBar.style.width = '70%'; netBar.className = 'progress-bar bg-warning'; pingSpan.className = 'text-warning fw-bold'; }
+                else { netBar.style.width = '30%'; netBar.className = 'progress-bar bg-danger'; pingSpan.className = 'text-danger fw-bold'; }
 
             } catch (e) {
                 document.getElementById('server-dot').className = 'status-dot offline';
