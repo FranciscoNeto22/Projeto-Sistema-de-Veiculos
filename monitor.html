@@ -78,8 +78,11 @@
 
 <body class="p-3">
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 position-relative">
         <h5 class="m-0">📟 SERVER MONITOR</h5>
+        <div id="data-hora-monitor" class="text-white"
+            style="font-family: monospace; font-size: 1.0rem; position: absolute; left: 50%; transform: translateX(-50%);">
+        </div>
         <a href="/app" class="btn btn-sm btn-outline-secondary">Voltar</a>
     </div>
 
@@ -200,9 +203,22 @@
             });
         }
 
+        // --- ADICIONADO: Data e Hora ---
+        const dataHoraEl = document.getElementById('data-hora-monitor');
+        function atualizarDataHora() {
+            const now = new Date();
+            const data = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const hora = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            if (dataHoraEl) dataHoraEl.textContent = `${data} ${hora}`;
+        }
+
         // Loop de verificação (a cada 2 segundos)
         setInterval(checkServer, 2000);
+        // Loop da data/hora (a cada segundo)
+        setInterval(atualizarDataHora, 1000);
+
         checkServer();
+        atualizarDataHora(); // Chamada inicial
         log("Monitor iniciado.");
     </script>
 </body>
