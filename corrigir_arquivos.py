@@ -27,7 +27,6 @@ monitor_html = """<!DOCTYPE html>
             100% { opacity: 1; }
         }
         .ping-indicator { animation: pulse 2s infinite; }
-        canvas { max-height: 200px; }
     </style>
 </head>
 <body class="p-3">
@@ -70,25 +69,6 @@ monitor_html = """<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- Gráficos -->
-    <div class="card">
-        <div class="card-body">
-            <div class="stat-label mb-2">Latência (Ping - ms)</div>
-            <canvas id="pingChart"></canvas>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card-body">
-            <div class="stat-label mb-2">Recursos do Sistema (%)</div>
-            <canvas id="resourceChart"></canvas>
-            <div class="d-flex justify-content-around mt-2 small">
-                <span style="color: #00d2ff">CPU: <span id="cpu-val">0</span>%</span>
-                <span style="color: #ff00e6">RAM: <span id="ram-val">0</span>%</span>
-            </div>
-        </div>
-    </div>
-
     <!-- Rede / Conexão -->
     <div class="card">
         <div class="card-body">
@@ -117,85 +97,8 @@ monitor_html = """<!DOCTYPE html>
         <button onclick="window.location.reload()" class="btn btn-dark w-100 py-3">🔄 Atualizar Dados</button>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         const logDiv = document.getElementById('console-log');
-        
-        // Configuração dos Gráficos
-        const maxDataPoints = 60; // 60 pontos * 2s = 2 minutos de histórico "vivo" na tela (para não pesar no celular)
-        
-        const ctxPing = document.getElementById('pingChart').getContext('2d');
-        const pingChart = new Chart(ctxPing, {
-            type: 'line',
-            data: {
-                labels: Array(maxDataPoints).fill(''),
-                datasets: [{
-                    label: 'Ping (ms)',
-                    data: Array(maxDataPoints).fill(0),
-                    borderColor: '#00ff00',
-                    borderWidth: 1,
-                    tension: 0.4,
-                    pointRadius: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: '#333' } },
-                    x: { display: false }
-                }
-            }
-        });
-
-        const ctxRes = document.getElementById('resourceChart').getContext('2d');
-        const resourceChart = new Chart(ctxRes, {
-            type: 'line',
-            data: {
-                labels: Array(maxDataPoints).fill(''),
-                datasets: [
-                    {
-                        label: 'CPU %',
-                        data: Array(maxDataPoints).fill(0),
-                        borderColor: '#00d2ff',
-                        borderWidth: 1,
-                        tension: 0.4,
-                        pointRadius: 0
-                    },
-                    {
-                        label: 'RAM %',
-                        data: Array(maxDataPoints).fill(0),
-                        borderColor: '#ff00e6',
-                        borderWidth: 1,
-                        tension: 0.4,
-                        pointRadius: 0
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { min: 0, max: 100, grid: { color: '#333' } },
-                    x: { display: false }
-                }
-            }
-        });
-
-        function updateChart(chart, val1, val2 = null) {
-            const data1 = chart.data.datasets[0].data;
-            data1.shift();
-            data1.push(val1);
-
-            if (val2 !== null && chart.data.datasets[1]) {
-                const data2 = chart.data.datasets[1].data;
-                data2.shift();
-                data2.push(val2);
-            }
-            chart.update('none'); // 'none' para animação suave
-        }
         
         function log(msg) {
             const time = new Date().toLocaleTimeString();
@@ -221,12 +124,6 @@ monitor_html = """<!DOCTYPE html>
                 
                 document.getElementById('uptime-val').textContent = data.uptime;
                 document.getElementById('db-size-val').textContent = data.db_size;
-                
-                // Atualiza textos e gráficos
-                document.getElementById('cpu-val').textContent = data.cpu || 0;
-                document.getElementById('ram-val').textContent = data.ram || 0;
-                updateChart(pingChart, latency);
-                updateChart(resourceChart, data.cpu || 0, data.ram || 0);
 
                 // Indicador de qualidade da rede baseado no ping
                 const netBar = document.getElementById('net-bar');
