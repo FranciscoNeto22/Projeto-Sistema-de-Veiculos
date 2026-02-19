@@ -18,5 +18,5 @@ if %errorLevel% == 0 (
 echo.
 echo ACESSE NO CELULAR: http://SEU_IP_ACIMA:8000
 echo.
-python -m uvicorn app:app --host 0.0.0.0 --port 8000
+py -m uvicorn app:app --host 0.0.0.0 --port 8000
 pause

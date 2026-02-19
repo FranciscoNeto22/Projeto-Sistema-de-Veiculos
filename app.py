@@ -531,6 +531,8 @@ def api_server_status(user: str = Depends(get_logged_user)):
         "uptime": str(uptime).split('.')[0], # Remove milissegundos
         "db_size": f"{health['db_size_mb']} MB",
         "db_status": health['db_status'],
+        "cpu": health['cpu'],
+        "ram": health['ram'],
         "server_time": now.strftime("%H:%M:%S")
     }
 
