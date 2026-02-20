@@ -18,7 +18,7 @@
 
         #status-rede.offline #bolinha-status {
             color: #ff3333;
-            /* vermelho - desconectado */
+            /* vermelho - desconcolocarectado */
         }
 
         #status-rede {
@@ -245,7 +245,8 @@
         #widget-calendario {
             background-color: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 50px; /* Bordas bem arredondadas (Pill) */
+            border-radius: 50px;
+            /* Bordas bem arredondadas (Pill) */
             padding: 5px 15px;
             cursor: pointer;
             transition: all 0.2s ease-in-out;
@@ -256,7 +257,7 @@
             background-color: rgba(255, 255, 255, 0.2);
             border-color: rgba(255, 255, 255, 0.4);
             transform: translateY(-1px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
         }
     </style>
     <!-- Fim dos estilos adicionados -->
@@ -282,10 +283,13 @@
             </div>
 
             <!-- Widget Calendário -->
-            <div id="widget-calendario" class="d-none d-md-flex align-items-center text-white gap-2" onclick="abrirCalendarioNav()" title="Clique para abrir o calendário">
+            <div id="widget-calendario" class="d-none d-md-flex align-items-center text-white gap-2"
+                onclick="abrirCalendarioNav()" title="Clique para abrir o calendário">
                 <span style="font-size: 1.2rem;">📅</span>
                 <span id="data-hora-atual" style="font-family: monospace; font-weight: bold; color: #fff;"></span>
-                <input type="date" id="nav-datepicker" style="position: absolute; opacity: 0; width: 0; height: 0; top: 0;" onchange="filtrarPorData(this.value)">
+                <input type="date" id="nav-datepicker"
+                    style="position: absolute; opacity: 0; width: 0; height: 0; top: 0;"
+                    onchange="filtrarPorData(this.value)">
             </div>
 
             <!-- Indicador de rede -->
@@ -300,62 +304,9 @@
         <div class="row">
 
             <!-- SIDEBAR (visível em md+, para telas pequenas usamos offcanvas) -->
-            <div class="col-md-2 bg-light vh-100 p-3 d-none d-md-block">
-                <h5>Menu</h5>
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#entradaModal">Entrada</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#saidaModal">Saída</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" data-bs-toggle="modal"
-                            data-bs-target="#cadastroModal">Cadastros</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#" data-bs-toggle="modal"
-                            data-bs-target="#consultaCadastroModal">Consultar Cadastros</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Relatórios</a>
-                    </li>
-                    <li class="nav-item d-none" id="menu-usuarios">
-                        <a class="nav-link text-primary" href="#" data-bs-toggle="modal"
-                            data-bs-target="#usuariosModal">👥 Gestão de Usuários</a>
-                    </li>
-                    <li class="nav-item d-none" id="menu-dev">
-                        <div class="nav-link text-warning" onclick="toggleVisualMode()">🎨 Edição Visual</div>
-                    </li>
-                    <li class="nav-item d-none" id="menu-dev-protocolos">
-                        <div class="nav-link text-info" data-bs-toggle="modal" data-bs-target="#protocolosModal">💬
-                            Protocolos Suporte</div>
-                    </li>
-                    <li class="nav-item d-none" id="menu-dev-update">
-                        <div class="nav-link text-success" data-bs-toggle="modal" data-bs-target="#publishUpdateModal">
-                            🚀 Publicar Update</div>
-                    </li>
-                    <li class="nav-item d-none" id="menu-dev-monitor">
-                        <a class="nav-link text-white bg-danger rounded mt-2" href="/monitor">📟 Monitor Server</a>
-                    </li>
-                    <li class="nav-item mt-4">
-                        <a class="nav-link text-danger" href="/logout">Sair</a>
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Offcanvas para telas pequenas -->
-            <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasMenu"
-                aria-labelledby="offcanvasMenuLabel">
-                <div class="offcanvas-header">
-                    <h5 class="offcanvas-title" id="offcanvasMenuLabel">Menu</h5>
-                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"
-                        aria-label="Fechar"></button>
-                </div>
-                <div class="offcanvas-body">
+            <div class="col-md-2 bg-light vh-100 p-3 d-none d-md-block d-flex flex-column">
+                <div>
+                    <h5>Menu</h5>
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link" href="#">Dashboard</a>
@@ -377,6 +328,74 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#">Relatórios</a>
+                        </li>
+                        <li class="nav-item d-none" id="menu-historico">
+                            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#historicoModal">📜
+                                Histórico de Ações</a>
+                        </li>
+                        <li class="nav-item d-none" id="menu-usuarios">
+                            <a class="nav-link text-primary" href="#" data-bs-toggle="modal"
+                                data-bs-target="#usuariosModal">👥 Gestão de Usuários</a>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev">
+                            <div class="nav-link text-warning" onclick="toggleVisualMode()">🎨 Edição Visual</div>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-protocolos">
+                            <div class="nav-link text-info" data-bs-toggle="modal" data-bs-target="#protocolosModal">💬
+                                Protocolos Suporte</div>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-update">
+                            <div class="nav-link text-success" data-bs-toggle="modal"
+                                data-bs-target="#publishUpdateModal">
+                                🚀 Publicar Update</div>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-monitor">
+                            <a class="nav-link text-white bg-danger rounded mt-2" href="/monitor">📟 Monitor Server</a>
+                        </li>
+                        <li class="nav-item mt-4">
+                            <a class="nav-link text-danger" href="/logout">Sair</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="mt-auto text-center">
+                    <img src="/static/img/logo.png?v=2" alt="Logo da Empresa" class="img-fluid" style="max-width: 120px;">
+                </div>
+            </div>
+
+            <!-- Offcanvas para telas pequenas -->
+            <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasMenu"
+                aria-labelledby="offcanvasMenuLabel">
+                <div class="offcanvas-header">
+                    <h5 class="offcanvas-title" id="offcanvasMenuLabel">Menu</h5>
+                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"
+                        aria-label="Fechar"></button>
+                </div>
+                <div class="offcanvas-body d-flex flex-column">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-bs-toggle="modal"
+                                data-bs-target="#entradaModal">Entrada</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#saidaModal">Saída</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-bs-toggle="modal"
+                                data-bs-target="#cadastroModal">Cadastros</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-bs-toggle="modal"
+                                data-bs-target="#consultaCadastroModal">Consultar Cadastros</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">Relatórios</a>
+                        </li>
+                        <li class="nav-item d-none" id="menu-historico-mobile">
+                            <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#historicoModal">📜
+                                Histórico</a>
                         </li>
                         <li class="nav-item d-none" id="menu-usuarios-mobile">
                             <a class="nav-link text-primary" href="#" data-bs-toggle="modal"
@@ -400,6 +419,10 @@
                             <a class="nav-link text-danger" href="/logout">Sair</a>
                         </li>
                     </ul>
+                    <div class="mt-auto text-center">
+                        <img src="/static/img/logo.png?v=2" alt="Logo da Empresa" class="img-fluid"
+                            style="max-width: 120px;">
+                    </div>
                 </div>
             </div>
 
@@ -677,7 +700,7 @@
         async function carregarClima() {
             const climaIcone = document.getElementById('clima-icone');
             const climaTexto = document.getElementById('clima-texto');
-            
+
             // Coordenadas padrão (Ex: São Paulo) caso geolocalização falhe
             let lat = -23.5505;
             let lon = -46.6333;
@@ -689,7 +712,7 @@
                 if (codigoClima >= 45 && codigoClima <= 48) icon = '🌫️'; // Neblina
                 if (codigoClima >= 51 && codigoClima <= 67) icon = '🌧️'; // Chuva fraca
                 if (codigoClima >= 80 && codigoClima <= 99) icon = '⛈️'; // Tempestade/Chuva forte
-                
+
                 climaIcone.textContent = icon;
                 climaTexto.textContent = `${Math.round(temperatura)}°C`;
             }
@@ -746,17 +769,20 @@
                     tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum veículo no estacionamento</td></tr>';
                 } else {
                     veiculos.forEach(veiculo => {
+                        // Calcula o tempo inicial para evitar o "pisca" (--:--:--)
+                        const timerData = obterDadosCronometro(veiculo.entrada);
+
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                        <td>${veiculo.placa || '-'}</td>
-                        <td>${veiculo.responsavel || '-'}</td>
-                        <td>${veiculo.entrada || '-'}</td>
-                        <td><span class="badge bg-success">No Pátio</span></td>
-                        <td>Principal</td>
-                        <td>
-                            <button class="btn btn-sm btn-danger" onclick="registrarSaida('${veiculo.placa}')">Dar Saída</button>
-                        </td>
-                    `;
+                            <td>${veiculo.placa || '-'}</td>
+                            <td>${veiculo.responsavel || '-'}</td>
+                            <td>${veiculo.entrada || '-'} <span class="${timerData.cssClass}" data-entry-time="${veiculo.entrada}">${timerData.text}</span></td>
+                            <td><span class="badge bg-success">No Pátio</span></td>
+                            <td>Principal</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger" onclick="registrarSaida('${veiculo.placa}')">Dar Saída</button>
+                            </td>
+                        `;
                         tbody.appendChild(row);
                     });
                 }
@@ -828,6 +854,8 @@
                     if (data.role === 'admin' || data.role === 'gerente' || data.role === 'dev') {
                         document.getElementById('menu-usuarios').classList.remove('d-none');
                         document.getElementById('menu-usuarios-mobile').classList.remove('d-none');
+                        document.getElementById('menu-historico').classList.remove('d-none');
+                        document.getElementById('menu-historico-mobile').classList.remove('d-none');
                     }
                     // Se for DEV, mostra menu de edição de layout
                     if (data.role === 'dev') {
@@ -853,9 +881,55 @@
             carregarClima(); // Carrega o clima
         });
 
+        // --- Lógica do Cronômetro Individual de Veículos ---
+        function parseDate(dateString) {
+            // Converte o formato "dd-mm-yyyy HH:MM:SS" para um objeto Date do JavaScript
+            if (!dateString) return null;
+            const parts = dateString.split(' ');
+            const dateParts = parts[0].split('-');
+            const timeParts = parts[1].split(':');
+            // new Date(ano, mês-1, dia, hora, minuto, segundo)
+            return new Date(dateParts[2], dateParts[1] - 1, dateParts[0], timeParts[0], timeParts[1], timeParts[2]);
+        }
+
+        function obterDadosCronometro(dataString) {
+            const dataEntrada = parseDate(dataString);
+            if (!dataEntrada) {
+                return { text: '--:--:--', cssClass: 'badge bg-secondary ms-2 vehicle-timer' };
+            }
+
+            const diff = new Date() - dataEntrada;
+            const horas = Math.floor(diff / 3600000);
+            const minutos = Math.floor((diff % 3600000) / 60000);
+            const segundos = Math.floor((diff % 60000) / 1000);
+            const tempoFormatado = `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`;
+
+            const cssClass = `badge ms-2 vehicle-timer ${horas >= 24 ? 'bg-danger' : horas >= 1 ? 'bg-warning text-dark' : 'bg-success'}`;
+            return { text: tempoFormatado, cssClass: cssClass };
+        }
+
+        function atualizarCronometrosIndividuais() {
+            const timerSpans = document.querySelectorAll('.vehicle-timer');
+
+            timerSpans.forEach(span => {
+                const entryString = span.dataset.entryTime;
+                if (!entryString) {
+                    return; // Não faz nada se não houver data
+                }
+
+                const timerData = obterDadosCronometro(entryString);
+
+                span.textContent = timerData.text;
+                if (span.className !== timerData.cssClass) {
+                    span.className = timerData.cssClass;
+                }
+            });
+        }
+
         // Atualizar veículos a cada 5 segundos
         setInterval(carregarVeiculos, 5000);
-
+        // Atualizar cronômetros a cada segundo
+        setInterval(atualizarCronometrosIndividuais, 1000);
     </script>
     <!-- Fim dos scripts -->
 
@@ -1388,6 +1462,119 @@
         });
     </script>
 
+    <!-- Modal: Histórico de Ações -->
+    <div class="modal fade" id="historicoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">📜 Histórico de Ações do Sistema</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="p-2 bg-light border-bottom d-flex justify-content-between align-items-center gap-2">
+                        <!-- NOVO: Filtro de usuário -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="filtroUsuarioHistorico" class="form-label mb-0 small">Filtrar por:</label>
+                            <select id="filtroUsuarioHistorico" class="form-select form-select-sm" style="width: auto;"
+                                onchange="carregarHistorico()">
+                                <option value="">Todos os Usuários</option>
+                            </select>
+                        </div>
+                        <a id="btnExportarHistorico" href="/api/historico/exportar" target="_blank"
+                            class="btn btn-sm btn-success">
+                            📥 Exportar Excel
+                        </a>
+                    </div>
+                    <table class="table table-striped table-hover mb-0" style="font-size: 0.9rem;">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Usuário</th>
+                                <th>Ação</th>
+                                <th>Detalhes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-historico">
+                            <tr>
+                                <td colspan="4" class="text-center">Carregando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const historicoModalEl = document.getElementById('historicoModal');
+        const filtroUsuarioSelect = document.getElementById('filtroUsuarioHistorico');
+        const tbodyHistorico = document.getElementById('tbody-historico');
+        const btnExportar = document.getElementById('btnExportarHistorico');
+
+        // Função para carregar o histórico com base no filtro
+        async function carregarHistorico() {
+            const usuarioSelecionado = filtroUsuarioSelect.value;
+            tbodyHistorico.innerHTML = '<tr><td colspan="4" class="text-center">Carregando...</td></tr>';
+
+            // Atualiza o link de exportação
+            btnExportar.href = usuarioSelecionado
+                ? `/api/historico/exportar?usuario=${encodeURIComponent(usuarioSelecionado)}`
+                : '/api/historico/exportar';
+
+            try {
+                const url = usuarioSelecionado
+                    ? `/api/historico?usuario=${encodeURIComponent(usuarioSelecionado)}`
+                    : '/api/historico';
+
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("Sem permissão ou erro na API");
+                const logs = await res.json();
+
+                if (logs.length === 0) {
+                    tbodyHistorico.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Nenhum registro encontrado para este filtro.</td></tr>';
+                    return;
+                }
+
+                tbodyHistorico.innerHTML = logs.map(log => `
+                    <tr>
+                        <td style="white-space:nowrap;">${log.data_hora}</td>
+                        <td class="fw-bold">${log.usuario}</td>
+                        <td><span class="badge bg-secondary">${log.acao}</span></td>
+                        <td class="text-muted small">${log.detalhes || '-'}</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                tbodyHistorico.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Erro ao carregar histórico: ${e.message}</td></tr>`;
+            }
+        }
+
+        // Evento que dispara quando o modal é aberto
+        historicoModalEl.addEventListener('show.bs.modal', async () => {
+            // 1. Limpa e prepara o select
+            filtroUsuarioSelect.innerHTML = '<option value="">Todos os Usuários</option>';
+
+            // 2. Busca a lista de usuários que têm logs
+            try {
+                const res = await fetch('/api/historico/usuarios');
+                if (!res.ok) throw new Error("Erro ao buscar usuários do histórico");
+                const usuarios = await res.json();
+
+                // 3. Popula o select com os usuários
+                usuarios.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user;
+                    option.textContent = user;
+                    filtroUsuarioSelect.appendChild(option);
+                });
+
+            } catch (e) {
+                console.error(e);
+            }
+
+            carregarHistorico();
+        });
+    </script>
+
     <!-- Modal: Gestão de Usuários (Apenas Gerente/Admin) -->
     <div class="modal fade" id="usuariosModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -1398,8 +1585,10 @@
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info small">
-                        <p class="mb-1"><strong>Dica:</strong> Se os usuários sumiram, use o botão abaixo para restaurar do arquivo de backup.</p>
-                        <button class="btn btn-sm btn-light border" onclick="importarUsuariosExcel()">📂 Importar/Restaurar do Excel (CSV)</button>
+                        <p class="mb-1"><strong>Dica:</strong> Se os usuários sumiram, use o botão abaixo para restaurar
+                            do arquivo de backup.</p>
+                        <button class="btn btn-sm btn-light border" onclick="importarUsuariosExcel()">📂
+                            Importar/Restaurar do Excel (CSV)</button>
                     </div>
                     <!-- Formulário de Criação -->
                     <div class="card mb-3">
@@ -1416,9 +1605,12 @@
                                     <option value="admin">Admin</option>
                                 </select>
                                 <div class="d-flex gap-2">
-                                    <button id="btnCriarUsuario" class="btn btn-success w-100" onclick="criarUsuario()">Criar Usuário</button>
-                                    <button id="btnSalvarUsuario" class="btn btn-primary w-100 d-none" onclick="salvarEdicaoUsuario()">Salvar Alterações</button>
-                                    <button id="btnCancelarEdicao" class="btn btn-secondary d-none" onclick="cancelarEdicaoUsuario()">Cancelar</button>
+                                    <button id="btnCriarUsuario" class="btn btn-success w-100"
+                                        onclick="criarUsuario()">Criar Usuário</button>
+                                    <button id="btnSalvarUsuario" class="btn btn-primary w-100 d-none"
+                                        onclick="salvarEdicaoUsuario()">Salvar Alterações</button>
+                                    <button id="btnCancelarEdicao" class="btn btn-secondary d-none"
+                                        onclick="cancelarEdicaoUsuario()">Cancelar</button>
                                 </div>
                             </div>
                         </div>
@@ -1490,7 +1682,7 @@
             document.getElementById('novoRole').value = role;
             document.getElementById('novoPass').value = '';
             document.getElementById('novoPass').placeholder = 'Deixe vazio para manter a senha atual';
-            
+
             document.getElementById('tituloFormUsuario').textContent = 'Editar Usuário';
             document.getElementById('btnCriarUsuario').classList.add('d-none');
             document.getElementById('btnSalvarUsuario').classList.remove('d-none');
@@ -1503,7 +1695,7 @@
             document.getElementById('novoRole').value = 'operador';
             document.getElementById('novoPass').value = '';
             document.getElementById('novoPass').placeholder = 'Senha';
-            
+
             document.getElementById('tituloFormUsuario').textContent = 'Novo Usuário';
             document.getElementById('btnCriarUsuario').classList.remove('d-none');
             document.getElementById('btnSalvarUsuario').classList.add('d-none');
@@ -1525,7 +1717,7 @@
             });
             const data = await res.json();
             alert(data.status || data.erro);
-            
+
             if (res.ok) {
                 cancelarEdicaoUsuario();
                 carregarUsuarios();
@@ -1541,8 +1733,8 @@
         }
 
         async function importarUsuariosExcel() {
-            if(!confirm("Isso irá ler o arquivo 'usuarios_backup.csv' e atualizar/criar os usuários no banco de dados. Deseja continuar?")) return;
-            
+            if (!confirm("Isso irá ler o arquivo 'usuarios_backup.csv' e atualizar/criar os usuários no banco de dados. Deseja continuar?")) return;
+
             const res = await fetch('/usuarios/importar', { method: 'POST' });
             const data = await res.json();
             alert(data.status || data.erro);
@@ -2289,7 +2481,7 @@
 
                 if (data.erro) {
                     alert("Atenção: " + data.erro);
-                    if(btn) {
+                    if (btn) {
                         btn.disabled = false;
                         btn.textContent = "Atualizar Agora";
                     }
@@ -2298,10 +2490,10 @@
                     // Só recarrega a página se a atualização der certo
                     location.reload(true);
                 }
-            } catch (e) { 
+            } catch (e) {
                 console.error("Erro ao solicitar update:", e);
                 alert("Erro de conexão ao tentar atualizar.");
-                if(btn) {
+                if (btn) {
                     btn.disabled = false;
                     btn.textContent = "Atualizar Agora";
                 }

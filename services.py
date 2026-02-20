@@ -277,6 +277,17 @@ def setup_usuarios():
             )
         """)
 
+        # --- HISTÓRICO / LOGS ---
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS historico_acoes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario TEXT,
+                acao TEXT,
+                detalhes TEXT,
+                data_hora TEXT
+            )
+        """)
+
         # Criar usuário padrão se não existir
         cursor.execute("SELECT id FROM usuarios WHERE username = 'admin'")
         if not cursor.fetchone():
@@ -545,6 +556,78 @@ def get_global_last_message_id():
         cursor.execute("SELECT MAX(id) FROM chat_mensagens")
         row = cursor.fetchone()
         return row[0] if row and row[0] else 0
+
+# --- Funções de Histórico / Logs ---
+
+def registrar_log(usuario, acao, detalhes=""):
+    """Registra uma ação no histórico."""
+    fuso = pytz.timezone('America/Sao_Paulo')
+    data_hora = datetime.now(fuso).strftime("%d/%m/%Y %H:%M:%S")
+    
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO historico_acoes (usuario, acao, detalhes, data_hora)
+                VALUES (?, ?, ?, ?)
+            """, (usuario, acao, detalhes, data_hora))
+    except Exception as e:
+        print(f"Erro ao salvar log: {e}")
+
+def listar_historico(usuario: Optional[str] = None):
+    """Lista as últimas 100 ações do sistema, com filtro opcional por usuário."""
+    with get_db_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        query = "SELECT * FROM historico_acoes"
+        params = []
+        
+        if usuario:
+            query += " WHERE usuario = ?"
+            params.append(usuario)
+            
+        query += " ORDER BY id DESC LIMIT 100"
+        
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+def listar_usuarios_do_historico():
+    """Retorna uma lista única de usuários que possuem registros no histórico."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT usuario FROM historico_acoes ORDER BY usuario ASC")
+        return [row[0] for row in cursor.fetchall()]
+
+def gerar_excel_historico(usuario: Optional[str] = None):
+    """Gera o caminho de um arquivo Excel (.xlsx) com o histórico, com filtro opcional."""
+    if usuario:
+        safe_usuario = "".join(c for c in usuario if c.isalnum() or c in ('-', '_')).rstrip()
+        filename = f"historico_{safe_usuario}.xlsx"
+    else:
+        filename = "historico_completo.xlsx"
+        
+    arquivo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+    
+    import pandas as pd
+    
+    with get_db_connection() as conn:
+        query = "SELECT data_hora, usuario, acao, detalhes FROM historico_acoes"
+        params = []
+        if usuario:
+            query += " WHERE usuario = ?"
+            params.append(usuario)
+        query += " ORDER BY id DESC"
+        
+        df = pd.read_sql_query(query, conn, params=params)
+        
+        df.rename(columns={
+            'data_hora': 'Data/Hora', 'usuario': 'Usuário', 'acao': 'Ação', 'detalhes': 'Detalhes'
+        }, inplace=True)
+
+        df.to_excel(arquivo_path, index=False, engine='openpyxl')
+    
+    return arquivo_path, filename
 
 # --- Funções de Configuração de Layout (CSS Dinâmico) ---
 

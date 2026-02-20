@@ -35,7 +35,9 @@ from services import (
     set_app_version,
     get_app_version, 
     importar_usuarios_csv,
-    update_protocol_status, get_global_last_message_id,
+    update_protocol_status, 
+    get_global_last_message_id, registrar_log, listar_historico,
+    gerar_excel_historico, listar_usuarios_do_historico,
     close_protocols_bulk,
     get_system_health
 )
@@ -162,11 +164,15 @@ async def login_form(request: Request, username: str = Form(...), password: str 
     request.session["user"] = user["username"]
     request.session["role"] = user["role"] if "role" in user.keys(
     ) else "operador"
+    
+    registrar_log(user["username"], "LOGIN", "Acesso ao sistema realizado.")
     return RedirectResponse(url="/app", status_code=303)
 
 
 @app.get("/logout")
 async def logout(request: Request):
+    user = request.session.get("user", "Desconhecido")
+    registrar_log(user, "LOGOUT", "Saída do sistema.")
     request.session.clear()
     return RedirectResponse(url="/")
 
@@ -191,11 +197,15 @@ def get_me(request: Request):
 
 @app.post("/entrada")
 def entrada(placa: str, tipo: str, user: str = Depends(get_logged_user)):
-    return registrar_entrada(placa, tipo)
+    res = registrar_entrada(placa, tipo)
+    if "status" in res:
+        registrar_log(user, "ENTRADA VEÍCULO", f"Placa: {placa} | Tipo: {tipo}")
+    return res
 
 
 @app.post("/saida")
 def saida(placa: str, user: str = Depends(get_logged_user)):
+    registrar_log(user, "SAÍDA VEÍCULO", f"Placa: {placa}")
     return registrar_saida(placa)
 
 
@@ -220,16 +230,19 @@ def saidas(user: str = Depends(get_logged_user)):
 
 @app.post("/reset")
 def reset(user: str = Depends(get_logged_user)):
+    registrar_log(user, "RESET BANCO", "Limpou todos os veículos do pátio.")
     return resetar_banco()
 
 
 @app.post("/cadastro")
 def novo_cadastro(dados: CadastroModel, user: str = Depends(get_logged_user)):
+    registrar_log(user, "NOVO CADASTRO", f"Nome: {dados.nome}")
     return registrar_cadastro(dados.dict())
 
 
 @app.put("/cadastro/{cadastro_id}")
 def atualizar_cadastro_endpoint(cadastro_id: int, dados: CadastroModel, user: str = Depends(get_logged_user)):
+    registrar_log(user, "ATUALIZAR CADASTRO", f"ID: {cadastro_id}")
     return service_atualizar_cadastro(cadastro_id, dados.dict())
 
 
@@ -255,12 +268,43 @@ def get_cadastro_endpoint(cadastro_id: int, user: str = Depends(get_logged_user)
 
 @app.delete("/cadastro/{cadastro_id}")
 def excluir_cadastro_endpoint(cadastro_id: int, user: str = Depends(get_logged_user)):
+    registrar_log(user, "EXCLUIR CADASTRO", f"ID: {cadastro_id}")
     return service_excluir_cadastro(cadastro_id)
 
 
 @app.get("/estatisticas")
 def estatisticas(user: str = Depends(get_logged_user)):
     return obter_estatisticas()
+
+# --- Rotas de Histórico (Logs) ---
+
+@app.get("/api/historico")
+def api_get_historico(request: Request, usuario: Optional[str] = None, user: str = Depends(get_logged_user)):
+    role = request.session.get("role")
+    if role not in ['gerente', 'admin', 'dev']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    return listar_historico(usuario)
+
+@app.get("/api/historico/usuarios")
+def api_get_historico_usuarios(request: Request, user: str = Depends(get_logged_user)):
+    role = request.session.get("role")
+    if role not in ['gerente', 'admin', 'dev']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    return listar_usuarios_do_historico()
+
+@app.get("/api/historico/exportar")
+def api_exportar_historico(request: Request, usuario: Optional[str] = None, user: str = Depends(get_logged_user)):
+    role = request.session.get("role")
+    if role not in ['gerente', 'admin', 'dev']:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    caminho, nome_arquivo = gerar_excel_historico(usuario)
+    
+    log_details = f"Exportou histórico de ações para o usuário '{usuario}'." if usuario else "Exportou histórico de ações completo."
+    registrar_log(user, "EXPORTAÇÃO", log_details)
+    
+    return FileResponse(caminho, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', filename=nome_arquivo)
+
 
 # --- Rotas de Gestão de Usuários (Apenas Gerente/Admin) ---
 
@@ -279,6 +323,7 @@ def novo_usuario(dados: UsuarioModel, request: Request, user: str = Depends(get_
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(
             status_code=403, detail="Apenas gerentes podem criar usuários.")
+    registrar_log(user, "CRIAR USUÁRIO", f"Novo user: {dados.username} | Cargo: {dados.role}")
     return criar_usuario(dados.username, dados.password, dados.role)
 
 @app.put("/usuarios/{user_id}")
@@ -287,6 +332,7 @@ def api_atualizar_usuario(user_id: int, dados: UsuarioModel, request: Request, u
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     # Passamos a senha (pode ser vazia se não for alterar)
+    registrar_log(user, "EDITAR USUÁRIO", f"ID: {user_id}")
     return atualizar_usuario(user_id, dados.username, dados.password, dados.role)
 
 
@@ -295,6 +341,7 @@ def api_excluir_usuario(user_id: int, request: Request, user: str = Depends(get_
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
+    registrar_log(user, "EXCLUIR USUÁRIO", f"ID: {user_id}")
     return excluir_usuario(user_id)
 
 @app.post("/usuarios/importar")
@@ -302,6 +349,7 @@ def api_importar_usuarios(request: Request, user: str = Depends(get_logged_user)
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
+    registrar_log(user, "IMPORTAR USUÁRIOS", "Via CSV Backup")
     return importar_usuarios_csv()
 
 
