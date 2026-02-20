@@ -7,7 +7,10 @@ from typing import Optional
 import bcrypt
 import json
 import pytz
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 def get_db_connection():
     return sqlite3.connect("estacionamento.db", timeout=10, check_same_thread=False)
@@ -856,12 +859,15 @@ def get_system_health():
 
     # Adicionando monitoramento de recursos de hardware
     try:
-        # Usando um intervalo pequeno para não bloquear a requisição por muito tempo
-        cpu_usage = psutil.cpu_percent(interval=0.1)
-        ram_info = psutil.virtual_memory()
-        ram_usage = ram_info.percent
-        disk_info = psutil.disk_usage('/')
-        disk_usage = disk_info.percent
+        if psutil:
+            # Usando um intervalo pequeno para não bloquear a requisição por muito tempo
+            cpu_usage = psutil.cpu_percent(interval=0.1)
+            ram_info = psutil.virtual_memory()
+            ram_usage = ram_info.percent
+            disk_info = psutil.disk_usage('/')
+            disk_usage = disk_info.percent
+        else:
+            raise ImportError("psutil não instalado")
     except Exception:
         # Em caso de erro (ex: psutil não instalado), retorna 0
         cpu_usage = 0

@@ -108,6 +108,17 @@ monitor_html = """<!DOCTYPE html>
         </div>
     </div>
 
+    <!-- Status Railway / Nuvem -->
+    <div class="card">
+        <div class="card-body text-center">
+            <div class="stat-label">Servidor Railway (Nuvem)</div>
+            <div class="mt-2">
+                <span id="railway-dot" class="status-dot offline"></span>
+                <span id="railway-text" class="fw-bold ms-2">Verificando...</span>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <!-- Uptime -->
         <div class="col-6">
@@ -196,6 +207,9 @@ monitor_html = """<!DOCTYPE html>
 
     <script>
         const logDiv = document.getElementById('console-log');
+        
+        // COLOQUE AQUI O LINK DO SEU RAILWAY (Ex: https://projeto-sistema-de-veiculos-production.up.railway.app)
+        const RAILWAY_URL = "https://projeto-sistema-de-veiculos-production.up.railway.app"; // Usando Google como teste de internet se não tiver o link
 
         function clearLog() {
             logDiv.innerHTML = '> Log limpo.<br>';
@@ -263,6 +277,19 @@ monitor_html = """<!DOCTYPE html>
                 document.getElementById('server-text').textContent = 'OFFLINE';
                 document.getElementById('server-text').style.color = '#ff0000';
                 log("Falha na conexão com servidor!");
+            }
+            
+            // Checar Railway (Modo no-cors para evitar erro de bloqueio, apenas checa se está de pé)
+            try {
+                await fetch(RAILWAY_URL, { mode: 'no-cors', cache: 'no-store' });
+                document.getElementById('railway-dot').className = 'status-dot online';
+                document.getElementById('railway-text').textContent = 'ONLINE';
+                document.getElementById('railway-text').style.color = '#00ff00';
+            } catch (e) {
+                document.getElementById('railway-dot').className = 'status-dot offline';
+                document.getElementById('railway-text').textContent = 'OFFLINE / ERRO';
+                document.getElementById('railway-text').style.color = '#ff0000';
+                log("Falha na conexão com Railway.");
             }
         }
 

@@ -105,6 +105,18 @@
         </div>
     </div>
 
+    <!-- Status Railway / Nuvem -->
+    <div class="card">
+        <div class="card-body text-center">
+            <div class="stat-label">Servidor Railway (Nuvem)</div>
+            <div class="mt-2">
+                <span id="railway-dot" class="status-dot offline"></span>
+                <span id="railway-text" class="fw-bold ms-2">Verificando...</span>
+            </div>
+            <div class="mt-2 small text-light">Ping: <span id="railway-ping-val">--</span> ms</div>
+        </div>
+    </div>
+
     <div class="row">
         <!-- Uptime -->
         <div class="col-6">
@@ -130,7 +142,7 @@
     <div class="card">
         <div class="card-body">
             <div class="stat-label mb-3 border-bottom border-secondary pb-1">Recursos do Servidor</div>
-            
+
             <div class="d-flex justify-content-between small text-light">
                 <span>CPU</span>
                 <span id="cpu-usage-val" class="text-white">--%</span>
@@ -193,6 +205,9 @@
 
     <script>
         const logDiv = document.getElementById('console-log');
+
+        // COLOQUE AQUI O LINK DO SEU RAILWAY (Ex: https://projeto-sistema-de-veiculos-production.up.railway.app)
+        const RAILWAY_URL = "https://projeto-sistema-de-veiculos-production.up.railway.app"; // Usando Google como teste de internet se não tiver o link
 
         function clearLog() {
             logDiv.innerHTML = '> Log limpo.<br>';
@@ -260,6 +275,40 @@
                 document.getElementById('server-text').textContent = 'OFFLINE';
                 document.getElementById('server-text').style.color = '#ff0000';
                 log("Falha na conexão com servidor!");
+            }
+
+            // Checar Railway (Nuvem)
+            const railwayStart = Date.now();
+            try {
+                // Usamos um endpoint leve e público da API (`/app-version`) para medir a latência real.
+                const railwayRes = await fetch(`${RAILWAY_URL}/app-version`, { cache: 'no-store' });
+                const railwayLatency = Date.now() - railwayStart;
+
+                if (!railwayRes.ok) throw new Error(`Status: ${railwayRes.status}`);
+
+                document.getElementById('railway-dot').className = 'status-dot online';
+                document.getElementById('railway-text').textContent = 'ONLINE';
+                document.getElementById('railway-text').style.color = '#00ff00';
+
+                const railwayPingSpan = document.getElementById('railway-ping-val');
+                railwayPingSpan.textContent = railwayLatency;
+
+                // Aplica a cor ao ping do Railway com base na latência
+                if (railwayLatency < 150) { // Verde se for muito rápido
+                    railwayPingSpan.className = 'text-success fw-bold';
+                } else if (railwayLatency < 500) { // Amarelo se for médio
+                    railwayPingSpan.className = 'text-warning fw-bold';
+                } else { // Vermelho se for lento
+                    railwayPingSpan.className = 'text-danger fw-bold';
+                }
+            } catch (e) {
+                document.getElementById('railway-dot').className = 'status-dot offline';
+                document.getElementById('railway-text').textContent = 'OFFLINE / ERRO';
+                document.getElementById('railway-text').style.color = '#ff0000';
+                const railwayPingSpan = document.getElementById('railway-ping-val');
+                railwayPingSpan.textContent = '--';
+                railwayPingSpan.className = ''; // Limpa a cor em caso de erro
+                log(`Falha na conexão com Railway: ${e.message || 'Verifique a URL.'}`);
             }
         }
 

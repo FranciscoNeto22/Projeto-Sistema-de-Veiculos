@@ -92,6 +92,8 @@ class AppVersionModel(BaseModel):
 
 app = FastAPI(title="API Controle de Veículos")
 
+if not os.path.exists("static"):
+    os.makedirs("static")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Rota para ignorar o erro de favicon.ico no navegador e limpar o terminal

@@ -268,7 +268,7 @@
 <body>
 
     <!-- HEADER -->
-    <nav class="navbar navbar-dark bg-dark px-3 justify-content-between">
+    <nav class="navbar navbar-dark bg-dark px-3 justify-content-between position-relative">
         <div class="d-flex align-items-center">
             <button class="btn btn-outline-light d-md-none me-2" type="button" data-bs-toggle="offcanvas"
                 data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu" aria-label="Abrir menu">☰</button>
@@ -276,6 +276,11 @@
         </div>
 
         <div class="d-flex align-items-center gap-3">
+            <!-- Usuário Logado (Centralizado) -->
+            <div class="position-absolute top-50 start-50 translate-middle text-white fw-bold d-none d-md-block">
+                Olá, <span id="nav-username-display">...</span>
+            </div>
+
             <!-- Widget Clima -->
             <div id="widget-clima" class="d-none d-md-flex align-items-center text-white gap-2" title="Clima Local">
                 <span id="clima-icone" style="font-size: 1.4rem;">☁️</span>
@@ -353,12 +358,13 @@
                             <a class="nav-link text-white bg-danger rounded mt-2" href="/monitor">📟 Monitor Server</a>
                         </li>
                         <li class="nav-item mt-4">
-                            <a class="nav-link text-danger" href="/logout">Sair</a>
+                            <a class="nav-link text-danger" href="/logout" onclick="return confirm('Tem certeza que deseja sair do sistema?');">Sair</a>
                         </li>
                     </ul>
                 </div>
                 <div class="mt-auto text-center">
-                    <img src="/static/img/logo.png?v=2" alt="Logo da Empresa" class="img-fluid" style="max-width: 120px;">
+                    <img src="/static/img/logo.png?v=3" alt="Logo da Empresa" class="img-fluid"
+                        style="max-width: 120px;">
                 </div>
             </div>
 
@@ -416,11 +422,11 @@
                             <a class="nav-link text-danger fw-bold" href="/monitor">📟 Monitor Server</a>
                         </li>
                         <li class="nav-item mt-4">
-                            <a class="nav-link text-danger" href="/logout">Sair</a>
+                            <a class="nav-link text-danger" href="/logout" onclick="return confirm('Tem certeza que deseja sair do sistema?');">Sair</a>
                         </li>
                     </ul>
                     <div class="mt-auto text-center">
-                        <img src="/static/img/logo.png?v=2" alt="Logo da Empresa" class="img-fluid"
+                        <img src="/static/img/logo.png?v=3" alt="Logo da Empresa" class="img-fluid"
                             style="max-width: 120px;">
                     </div>
                 </div>
@@ -849,6 +855,9 @@
                     // FIX: Armazena os dados do usuário globalmente para uso no chat e outras funções
                     currentUser.username = data.username;
                     currentUser.role = data.role;
+
+                    // Atualiza o nome no centro do Navbar
+                    document.getElementById('nav-username-display').textContent = data.username;
 
                     // Se for admin ou gerente, mostra menu de usuários
                     if (data.role === 'admin' || data.role === 'gerente' || data.role === 'dev') {
