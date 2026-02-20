@@ -6,3 +6,4 @@ psutil
 pandas
 openpyxl
 itsdangerous
+python-multipart
