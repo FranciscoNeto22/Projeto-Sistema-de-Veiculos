@@ -562,7 +562,11 @@ def run_sql(dados: SqlQuery, request: Request, user: str = Depends(get_logged_us
 # --- Rota do APP de Monitoramento (Mobile PWA) ---
 
 @app.get("/monitor")
-def monitor_panel(request: Request, user: str = Depends(get_logged_user)):
+def monitor_panel(request: Request):
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse(url="/")
+
     role = request.session.get("role")
     if role not in ["admin", "dev"]:
         return RedirectResponse(url="/app")

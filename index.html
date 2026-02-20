@@ -873,6 +873,8 @@
                     } else if (data.role === 'admin') {
                         // Admin também pode ver protocolos
                         ['menu-dev-protocolos', 'menu-dev-protocolos-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
+                        // Admin também pode ver monitor
+                        ['menu-dev-monitor', 'menu-dev-monitor-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
                         // Também mostra o modal SQL se quiser (opcional, ou cria outro botão)
                     }
                 }
