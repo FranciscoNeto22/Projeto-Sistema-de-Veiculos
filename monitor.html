@@ -4,6 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Server Monitor</title>
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#000000">
@@ -73,6 +76,10 @@
         .ping-indicator {
             animation: pulse 2s infinite;
         }
+
+        .progress-bar {
+            transition: width 0.4s ease-in-out;
+        }
     </style>
 </head>
 
@@ -94,8 +101,7 @@
                 <span id="server-dot" class="status-dot offline"></span>
                 <span id="server-text" class="fw-bold ms-2">Desconectado</span>
             </div>
-            <div class="mt-2 small text-muted">Ping: <span id="ping-val">--</span>ms
-            </div>
+            <div class="mt-2 small text-light">Ping: <span id="ping-val">--</span> ms</div>
         </div>
     </div>
 
@@ -120,6 +126,37 @@
         </div>
     </div>
 
+    <!-- Recursos de Hardware (CPU/RAM/Disk) -->
+    <div class="card">
+        <div class="card-body">
+            <div class="stat-label mb-3 border-bottom border-secondary pb-1">Recursos do Servidor</div>
+            
+            <div class="d-flex justify-content-between small text-light">
+                <span>CPU</span>
+                <span id="cpu-usage-val" class="text-white">--%</span>
+            </div>
+            <div class="progress mb-3" style="height: 6px; background-color: #333;">
+                <div id="cpu-bar" class="progress-bar" style="width: 0%"></div>
+            </div>
+
+            <div class="d-flex justify-content-between small text-light">
+                <span>Memória RAM</span>
+                <span id="ram-usage-val" class="text-white">--%</span>
+            </div>
+            <div class="progress mb-3" style="height: 6px; background-color: #333;">
+                <div id="ram-bar" class="progress-bar" style="width: 0%"></div>
+            </div>
+
+            <div class="d-flex justify-content-between small text-light">
+                <span>Disco</span>
+                <span id="disk-usage-val" class="text-white">--%</span>
+            </div>
+            <div class="progress" style="height: 6px; background-color: #333;">
+                <div id="disk-bar" class="progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Rede / Conexão -->
     <div class="card">
         <div class="card-body">
@@ -135,7 +172,13 @@
 
     <!-- Log Console -->
     <div class="card mt-3">
-        <div class="card-header py-1 small bg-dark border-bottom border-secondary">System Log</div>
+        <div
+            class="card-header py-1 small bg-dark border-bottom border-secondary d-flex justify-content-between align-items-center">
+            <span>System Log</span>
+            <button class="btn btn-sm"
+                style="background-color: red !important; color: white !important; font-weight: bold; padding: 0 5px;"
+                onclick="clearLog()">Limpar</button>
+        </div>
         <div class="card-body p-2 bg-black" style="height: 150px; overflow-y: auto; font-size: 0.75rem; color: #0f0;">
             <div id="console-log">
                 > Inicializando monitor...<br>
@@ -150,6 +193,10 @@
 
     <script>
         const logDiv = document.getElementById('console-log');
+
+        function clearLog() {
+            logDiv.innerHTML = '> Log limpo.<br>';
+        }
 
         function log(msg) {
             const time = new Date().toLocaleTimeString();
@@ -177,6 +224,29 @@
 
                 document.getElementById('uptime-val').textContent = data.uptime;
                 document.getElementById('db-size-val').textContent = data.db_size;
+
+                // --- NOVO: Atualiza o monitor de recursos ---
+                const cpu = data.cpu_usage || 0;
+                const ram = data.ram_usage || 0;
+                const disk = data.disk_usage || 0;
+
+                document.getElementById('cpu-usage-val').textContent = cpu.toFixed(1) + '%';
+                document.getElementById('ram-usage-val').textContent = ram.toFixed(1) + '%';
+                document.getElementById('disk-usage-val').textContent = disk.toFixed(1) + '%';
+
+                const cpuBar = document.getElementById('cpu-bar');
+                const ramBar = document.getElementById('ram-bar');
+                const diskBar = document.getElementById('disk-bar');
+
+                cpuBar.style.width = cpu + '%';
+                ramBar.style.width = ram + '%';
+                diskBar.style.width = disk + '%';
+
+                // Altera a cor da barra com base no uso
+                [cpuBar, ramBar, diskBar].forEach((bar, index) => {
+                    const value = [cpu, ram, disk][index];
+                    bar.className = 'progress-bar ' + (value > 90 ? 'bg-danger' : value > 70 ? 'bg-warning' : 'bg-success');
+                });
 
                 // Indicador de qualidade da rede baseado no ping
                 const netBar = document.getElementById('net-bar');

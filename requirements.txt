@@ -1,9 +1,5 @@
 fastapi
-uvicorn
-pydantic
+uvicorn[standard]
 bcrypt
-jinja2
-starlette
-itsdangerous
-python-multipart
 pytz
+psutil

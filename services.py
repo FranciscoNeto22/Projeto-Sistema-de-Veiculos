@@ -7,6 +7,7 @@ from typing import Optional
 import bcrypt
 import json
 import pytz
+import psutil
 
 def get_db_connection():
     return sqlite3.connect("estacionamento.db", timeout=10, check_same_thread=False)
@@ -770,7 +771,24 @@ def get_system_health():
     if os.path.exists(db_path):
         db_size = os.path.getsize(db_path) / (1024 * 1024) # Tamanho em MB
 
+    # Adicionando monitoramento de recursos de hardware
+    try:
+        # Usando um intervalo pequeno para não bloquear a requisição por muito tempo
+        cpu_usage = psutil.cpu_percent(interval=0.1)
+        ram_info = psutil.virtual_memory()
+        ram_usage = ram_info.percent
+        disk_info = psutil.disk_usage('/')
+        disk_usage = disk_info.percent
+    except Exception:
+        # Em caso de erro (ex: psutil não instalado), retorna 0
+        cpu_usage = 0
+        ram_usage = 0
+        disk_usage = 0
+
     return {
         "db_size_mb": round(db_size, 2),
-        "db_status": "Conectado" if os.path.exists(db_path) else "Erro"
+        "db_status": "Conectado" if os.path.exists(db_path) else "Erro",
+        "cpu_usage": cpu_usage,
+        "ram_usage": ram_usage,
+        "disk_usage": disk_usage,
     }

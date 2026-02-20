@@ -516,7 +516,13 @@ def monitor_panel(request: Request, user: str = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ["admin", "dev"]:
         return RedirectResponse(url="/app")
-    return FileResponse("monitor.html")
+    
+    # Força o navegador a não usar cache para o monitor
+    response = FileResponse("monitor.html")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.get("/api/server-status")
 def api_server_status(user: str = Depends(get_logged_user)):
@@ -531,7 +537,10 @@ def api_server_status(user: str = Depends(get_logged_user)):
         "uptime": str(uptime).split('.')[0], # Remove milissegundos
         "db_size": f"{health['db_size_mb']} MB",
         "db_status": health['db_status'],
-        "server_time": now.strftime("%H:%M:%S")
+        "server_time": now.strftime("%H:%M:%S"),
+        "cpu_usage": health.get("cpu_usage", 0),
+        "ram_usage": health.get("ram_usage", 0),
+        "disk_usage": health.get("disk_usage", 0),
     }
 
 if __name__ == "__main__":
