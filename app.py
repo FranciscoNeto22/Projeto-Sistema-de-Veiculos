@@ -2,7 +2,9 @@
 import os
 import uvicorn
 import subprocess
-from fastapi import FastAPI, HTTPException, Form, Request, Depends, Response
+import shutil
+import uuid
+from fastapi import FastAPI, HTTPException, Form, Request, Depends, Response, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 # Importar o middleware de sessão
@@ -38,7 +40,8 @@ from services import (
     update_protocol_status, 
     get_global_last_message_id, registrar_log, listar_historico,
     gerar_excel_historico, listar_usuarios_do_historico,
-    close_protocols_bulk,
+    close_protocols_bulk, salvar_arquivo_db, listar_arquivos_db,
+    get_arquivo_por_id, excluir_arquivo_db,
     get_system_health
 )
 
@@ -95,6 +98,9 @@ app = FastAPI(title="API Controle de Veículos")
 if not os.path.exists("static"):
     os.makedirs("static")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
 
 # Rota para ignorar o erro de favicon.ico no navegador e limpar o terminal
 
@@ -183,7 +189,12 @@ async def logout(request: Request):
 def main_app(user: str = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/")
-    return FileResponse("index.html")
+    # Força o navegador a não usar cache para o app principal
+    response = FileResponse("index.html")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # Rota para o frontend saber quem é o usuário logado e suas permissões
 
@@ -444,6 +455,67 @@ def bulk_close_endpoint(dados: BulkCloseRequest, request: Request, user: str = D
     result = close_protocols_bulk(dados.ids)
     return {"status": f"{result['count']} protocolos encerrados."}
 
+
+# --- Rotas de Arquivos (Nuvem) ---
+
+@app.post("/api/arquivos/upload")
+async def upload_arquivo(file: UploadFile = File(...), user: str = Depends(get_logged_user)):
+    try:
+        # Gera nome único para não sobrescrever
+        extensao = os.path.splitext(file.filename)[1]
+        nome_fisico = f"{uuid.uuid4()}{extensao}"
+        caminho_completo = os.path.join("uploads", nome_fisico)
+        
+        # Salva no disco
+        with open(caminho_completo, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Calcula tamanho legível
+        tamanho_bytes = os.path.getsize(caminho_completo)
+        if tamanho_bytes < 1024:
+            tamanho_str = f"{tamanho_bytes} B"
+        elif tamanho_bytes < 1024 * 1024:
+            tamanho_str = f"{round(tamanho_bytes/1024, 1)} KB"
+        else:
+            tamanho_str = f"{round(tamanho_bytes/(1024*1024), 1)} MB"
+
+        salvar_arquivo_db(file.filename, nome_fisico, tamanho_str, user)
+        registrar_log(user, "UPLOAD ARQUIVO", f"Arquivo: {file.filename}")
+        
+        return {"status": "Upload realizado com sucesso!"}
+    except Exception as e:
+        return {"erro": str(e)}
+
+@app.get("/api/arquivos")
+def api_listar_arquivos(user: str = Depends(get_logged_user)):
+    return listar_arquivos_db()
+
+@app.get("/api/arquivos/download/{arquivo_id}")
+def download_arquivo(arquivo_id: int, user: str = Depends(get_logged_user)):
+    arquivo = get_arquivo_por_id(arquivo_id)
+    if not arquivo:
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+    
+    caminho = os.path.join("uploads", arquivo['caminho_salvo'])
+    if not os.path.exists(caminho):
+        raise HTTPException(status_code=404, detail="Arquivo físico não encontrado no servidor")
+        
+    return FileResponse(caminho, filename=arquivo['nome_original'])
+
+@app.delete("/api/arquivos/{arquivo_id}")
+def delete_arquivo(arquivo_id: int, request: Request, user: str = Depends(get_logged_user)):
+    arquivo = get_arquivo_por_id(arquivo_id)
+    if not arquivo:
+        return {"erro": "Arquivo não encontrado"}
+    
+    # Remove do disco
+    caminho = os.path.join("uploads", arquivo['caminho_salvo'])
+    if os.path.exists(caminho):
+        os.remove(caminho)
+        
+    excluir_arquivo_db(arquivo_id)
+    registrar_log(user, "EXCLUIR ARQUIVO", f"ID: {arquivo_id}")
+    return {"status": "Arquivo excluído"}
 
 @app.get("/chat/last-message-id")
 def get_last_msg_id(user: str = Depends(get_logged_user)):

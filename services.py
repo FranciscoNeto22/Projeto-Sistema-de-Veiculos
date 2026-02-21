@@ -280,6 +280,18 @@ def setup_usuarios():
             )
         """)
 
+        # --- ARQUIVOS / NUVEM ---
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS arquivos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome_original TEXT,
+                caminho_salvo TEXT,
+                tamanho TEXT,
+                data_upload TEXT,
+                uploader TEXT
+            )
+        """)
+
         # --- HISTÓRICO / LOGS ---
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS historico_acoes (
@@ -561,6 +573,36 @@ def get_global_last_message_id():
         return row[0] if row and row[0] else 0
 
 # --- Funções de Histórico / Logs ---
+
+def salvar_arquivo_db(nome_original, caminho_salvo, tamanho, uploader):
+    fuso = pytz.timezone('America/Sao_Paulo')
+    data_upload = datetime.now(fuso).strftime("%d/%m/%Y %H:%M")
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO arquivos (nome_original, caminho_salvo, tamanho, data_upload, uploader)
+            VALUES (?, ?, ?, ?, ?)
+        """, (nome_original, caminho_salvo, tamanho, data_upload, uploader))
+    return {"status": "Arquivo salvo"}
+
+def listar_arquivos_db():
+    with get_db_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM arquivos ORDER BY id DESC")
+        return [dict(row) for row in cursor.fetchall()]
+
+def get_arquivo_por_id(arquivo_id):
+    with get_db_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM arquivos WHERE id = ?", (arquivo_id,))
+        return cursor.fetchone()
+
+def excluir_arquivo_db(arquivo_id):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM arquivos WHERE id = ?", (arquivo_id,))
 
 def registrar_log(usuario, acao, detalhes=""):
     """Registra uma ação no histórico."""

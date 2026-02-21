@@ -302,6 +302,11 @@
                 <span class="d-none d-sm-inline">Rede</span>
                 <span id="bolinha-status" style="font-size: 1.6rem; line-height: 1;">•</span>
             </div>
+
+            <!-- Botão de Nuvem no Topo (Garantia de visualização) -->
+            <button class="btn btn-primary ms-2 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#arquivosModal" style="border: 1px solid rgba(255,255,255,0.5);">
+                ☁️ Nuvem
+            </button>
         </div>
     </nav>
 
@@ -313,6 +318,11 @@
                 <div>
                     <h5>Menu</h5>
                     <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link text-primary fw-bold" href="#" data-bs-toggle="modal" data-bs-target="#arquivosModal">
+                                ☁️ Arquivos / Nuvem <span class="badge bg-danger ms-1" style="font-size: 0.6em;">NOVO</span>
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#">Dashboard</a>
                         </li>
@@ -378,6 +388,11 @@
                 </div>
                 <div class="offcanvas-body d-flex flex-column">
                     <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link text-primary fw-bold" href="#" data-bs-toggle="modal" data-bs-target="#arquivosModal">
+                                ☁️ Arquivos / Nuvem <span class="badge bg-danger ms-1" style="font-size: 0.6em;">NOVO</span>
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#">Dashboard</a>
                         </li>
@@ -1584,6 +1599,120 @@
 
             carregarHistorico();
         });
+    </script>
+
+    <!-- Modal: Gestão de Arquivos (Nuvem) -->
+    <div class="modal fade" id="arquivosModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">☁️ Nuvem de Arquivos</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Área de Upload -->
+                    <div class="card mb-3 border-dashed" style="border: 2px dashed #ccc; background: #f9f9f9;">
+                        <div class="card-body text-center">
+                            <p class="mb-2 text-muted">Selecione um arquivo para enviar para o servidor</p>
+                            <div class="d-flex justify-content-center gap-2">
+                                <input type="file" id="inputArquivoUpload" class="form-control" style="max-width: 300px;">
+                                <button class="btn btn-success" onclick="fazerUploadArquivo()">Enviar ⬆️</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Arquivos -->
+                    <h6 class="border-bottom pb-2">Arquivos Armazenados</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Tamanho</th>
+                                    <th>Data</th>
+                                    <th>Enviado por</th>
+                                    <th class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-arquivos">
+                                <tr><td colspan="5" class="text-center">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const arquivosModal = document.getElementById('arquivosModal');
+        arquivosModal.addEventListener('show.bs.modal', carregarArquivosNuvem);
+
+        async function carregarArquivosNuvem() {
+            const tbody = document.getElementById('tbody-arquivos');
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Carregando...</td></tr>';
+            try {
+                const res = await fetch('/api/arquivos');
+                const arquivos = await res.json();
+                
+                if(arquivos.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhum arquivo encontrado.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = arquivos.map(a => `
+                    <tr>
+                        <td><a href="/api/arquivos/download/${a.id}" target="_blank" class="text-decoration-none fw-bold">📄 ${a.nome_original}</a></td>
+                        <td><span class="badge bg-secondary">${a.tamanho}</span></td>
+                        <td class="small">${a.data_upload}</td>
+                        <td class="small text-muted">${a.uploader}</td>
+                        <td class="text-end">
+                            <a href="/api/arquivos/download/${a.id}" target="_blank" class="btn btn-sm btn-outline-primary" title="Baixar">⬇️</a>
+                            <button class="btn btn-sm btn-outline-danger" onclick="excluirArquivoNuvem(${a.id})" title="Excluir">🗑️</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch(e) { console.error(e); }
+        }
+
+        async function fazerUploadArquivo() {
+            const input = document.getElementById('inputArquivoUpload');
+            if(input.files.length === 0) return alert("Selecione um arquivo!");
+            
+            const formData = new FormData();
+            formData.append('file', input.files[0]);
+
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = "Enviando...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/arquivos/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if(data.status) {
+                    input.value = ''; // Limpa input
+                    carregarArquivosNuvem(); // Recarrega lista
+                } else {
+                    alert("Erro: " + data.erro);
+                }
+            } catch(e) { alert("Erro no upload."); }
+            
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+
+        async function excluirArquivoNuvem(id) {
+            if(!confirm("Tem certeza que deseja excluir este arquivo permanentemente?")) return;
+            try {
+                const res = await fetch(`/api/arquivos/${id}`, { method: 'DELETE' });
+                carregarArquivosNuvem();
+            } catch(e) { alert("Erro ao excluir."); }
+        }
     </script>
 
     <!-- Modal: Gestão de Usuários (Apenas Gerente/Admin) -->
