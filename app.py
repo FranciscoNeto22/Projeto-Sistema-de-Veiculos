@@ -1,4 +1,5 @@
 # app.py
+from datetime import datetime
 import os
 import uvicorn
 import subprocess
@@ -35,9 +36,9 @@ from services import (
     create_protocol_and_message, list_protocols,
     get_protocol_by_id,
     set_app_version,
-    get_app_version, 
+    get_app_version,
     importar_usuarios_csv,
-    update_protocol_status, 
+    update_protocol_status,
     get_global_last_message_id, registrar_log, listar_historico,
     gerar_excel_historico, listar_usuarios_do_historico,
     close_protocols_bulk, salvar_arquivo_db, listar_arquivos_db,
@@ -109,8 +110,8 @@ if not os.path.exists("uploads"):
 async def favicon():
     return Response(status_code=204)
 
-from datetime import datetime
 START_TIME = datetime.now()
+
 
 @app.on_event("startup")
 def on_startup():
@@ -172,7 +173,7 @@ async def login_form(request: Request, username: str = Form(...), password: str 
     request.session["user"] = user["username"]
     request.session["role"] = user["role"] if "role" in user.keys(
     ) else "operador"
-    
+
     registrar_log(user["username"], "LOGIN", "Acesso ao sistema realizado.")
     return RedirectResponse(url="/app", status_code=303)
 
@@ -189,11 +190,13 @@ async def logout(request: Request):
 def main_app(user: str = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/")
-    # Força o navegador a não usar cache para o app principal
-    response = FileResponse("index.html")
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    # Força o navegador a não usar cache para o app principal, garantindo que as
+    # alterações no HTML sejam vistas imediatamente.
+    response = FileResponse("index.html", headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    })
     return response
 
 # Rota para o frontend saber quem é o usuário logado e suas permissões
@@ -212,7 +215,8 @@ def get_me(request: Request):
 def entrada(placa: str, tipo: str, user: str = Depends(get_logged_user)):
     res = registrar_entrada(placa, tipo)
     if "status" in res:
-        registrar_log(user, "ENTRADA VEÍCULO", f"Placa: {placa} | Tipo: {tipo}")
+        registrar_log(user, "ENTRADA VEÍCULO",
+                      f"Placa: {placa} | Tipo: {tipo}")
     return res
 
 
@@ -291,12 +295,14 @@ def estatisticas(user: str = Depends(get_logged_user)):
 
 # --- Rotas de Histórico (Logs) ---
 
+
 @app.get("/api/historico")
 def api_get_historico(request: Request, usuario: Optional[str] = None, user: str = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     return listar_historico(usuario)
+
 
 @app.get("/api/historico/usuarios")
 def api_get_historico_usuarios(request: Request, user: str = Depends(get_logged_user)):
@@ -305,17 +311,18 @@ def api_get_historico_usuarios(request: Request, user: str = Depends(get_logged_
         raise HTTPException(status_code=403, detail="Acesso negado")
     return listar_usuarios_do_historico()
 
+
 @app.get("/api/historico/exportar")
 def api_exportar_historico(request: Request, usuario: Optional[str] = None, user: str = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
-    
+
     caminho, nome_arquivo = gerar_excel_historico(usuario)
-    
+
     log_details = f"Exportou histórico de ações para o usuário '{usuario}'." if usuario else "Exportou histórico de ações completo."
     registrar_log(user, "EXPORTAÇÃO", log_details)
-    
+
     return FileResponse(caminho, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', filename=nome_arquivo)
 
 
@@ -336,8 +343,10 @@ def novo_usuario(dados: UsuarioModel, request: Request, user: str = Depends(get_
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(
             status_code=403, detail="Apenas gerentes podem criar usuários.")
-    registrar_log(user, "CRIAR USUÁRIO", f"Novo user: {dados.username} | Cargo: {dados.role}")
+    registrar_log(user, "CRIAR USUÁRIO",
+                  f"Novo user: {dados.username} | Cargo: {dados.role}")
     return criar_usuario(dados.username, dados.password, dados.role)
+
 
 @app.put("/usuarios/{user_id}")
 def api_atualizar_usuario(user_id: int, dados: UsuarioModel, request: Request, user: str = Depends(get_logged_user)):
@@ -356,6 +365,7 @@ def api_excluir_usuario(user_id: int, request: Request, user: str = Depends(get_
         raise HTTPException(status_code=403, detail="Acesso negado")
     registrar_log(user, "EXCLUIR USUÁRIO", f"ID: {user_id}")
     return excluir_usuario(user_id)
+
 
 @app.post("/usuarios/importar")
 def api_importar_usuarios(request: Request, user: str = Depends(get_logged_user)):
@@ -465,11 +475,11 @@ async def upload_arquivo(file: UploadFile = File(...), user: str = Depends(get_l
         extensao = os.path.splitext(file.filename)[1]
         nome_fisico = f"{uuid.uuid4()}{extensao}"
         caminho_completo = os.path.join("uploads", nome_fisico)
-        
+
         # Salva no disco
         with open(caminho_completo, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
+
         # Calcula tamanho legível
         tamanho_bytes = os.path.getsize(caminho_completo)
         if tamanho_bytes < 1024:
@@ -481,41 +491,46 @@ async def upload_arquivo(file: UploadFile = File(...), user: str = Depends(get_l
 
         salvar_arquivo_db(file.filename, nome_fisico, tamanho_str, user)
         registrar_log(user, "UPLOAD ARQUIVO", f"Arquivo: {file.filename}")
-        
+
         return {"status": "Upload realizado com sucesso!"}
     except Exception as e:
         return {"erro": str(e)}
 
+
 @app.get("/api/arquivos")
 def api_listar_arquivos(user: str = Depends(get_logged_user)):
     return listar_arquivos_db()
+
 
 @app.get("/api/arquivos/download/{arquivo_id}")
 def download_arquivo(arquivo_id: int, user: str = Depends(get_logged_user)):
     arquivo = get_arquivo_por_id(arquivo_id)
     if not arquivo:
         raise HTTPException(status_code=404, detail="Arquivo não encontrado")
-    
+
     caminho = os.path.join("uploads", arquivo['caminho_salvo'])
     if not os.path.exists(caminho):
-        raise HTTPException(status_code=404, detail="Arquivo físico não encontrado no servidor")
-        
+        raise HTTPException(
+            status_code=404, detail="Arquivo físico não encontrado no servidor")
+
     return FileResponse(caminho, filename=arquivo['nome_original'])
+
 
 @app.delete("/api/arquivos/{arquivo_id}")
 def delete_arquivo(arquivo_id: int, request: Request, user: str = Depends(get_logged_user)):
     arquivo = get_arquivo_por_id(arquivo_id)
     if not arquivo:
         return {"erro": "Arquivo não encontrado"}
-    
+
     # Remove do disco
     caminho = os.path.join("uploads", arquivo['caminho_salvo'])
     if os.path.exists(caminho):
         os.remove(caminho)
-        
+
     excluir_arquivo_db(arquivo_id)
     registrar_log(user, "EXCLUIR ARQUIVO", f"ID: {arquivo_id}")
     return {"status": "Arquivo excluído"}
+
 
 @app.get("/chat/last-message-id")
 def get_last_msg_id(user: str = Depends(get_logged_user)):
@@ -633,6 +648,7 @@ def run_sql(dados: SqlQuery, request: Request, user: str = Depends(get_logged_us
 
 # --- Rota do APP de Monitoramento (Mobile PWA) ---
 
+
 @app.get("/monitor")
 def monitor_panel(request: Request):
     user = request.session.get("user")
@@ -642,7 +658,7 @@ def monitor_panel(request: Request):
     role = request.session.get("role")
     if role not in ["admin", "dev"]:
         return RedirectResponse(url="/app")
-    
+
     # Força o navegador a não usar cache para o monitor
     response = FileResponse("monitor.html")
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -650,17 +666,18 @@ def monitor_panel(request: Request):
     response.headers["Expires"] = "0"
     return response
 
+
 @app.get("/api/server-status")
 def api_server_status(user: str = Depends(get_logged_user)):
     # Calcula tempo de atividade (Uptime)
     now = datetime.now()
     uptime = now - START_TIME
-    
+
     # Dados do sistema
     health = get_system_health()
-    
+
     return {
-        "uptime": str(uptime).split('.')[0], # Remove milissegundos
+        "uptime": str(uptime).split('.')[0],  # Remove milissegundos
         "db_size": f"{health['db_size_mb']} MB",
         "db_status": health['db_status'],
         "server_time": now.strftime("%H:%M:%S"),
@@ -668,6 +685,7 @@ def api_server_status(user: str = Depends(get_logged_user)):
         "ram_usage": health.get("ram_usage", 0),
         "disk_usage": health.get("disk_usage", 0),
     }
+
 
 if __name__ == "__main__":
     # Permite acesso externo (celular) na porta 8000
