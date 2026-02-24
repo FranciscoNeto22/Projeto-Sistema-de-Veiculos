@@ -46,7 +46,7 @@ from services import (
     close_protocols_bulk, salvar_arquivo_db, listar_arquivos_db,
     get_arquivo_por_id, excluir_arquivo_db,
     get_system_health, salvar_historico_performance,
-    obter_historico_performance
+    obter_historico_performance, limpar_historico_performance
 )
 
 
@@ -178,6 +178,11 @@ async def login_form(request: Request, username: str = Form(...), password: str 
     ) else "operador"
 
     registrar_log(user["username"], "LOGIN", "Acesso ao sistema realizado.")
+    
+    # Se for vigilante, manda direto para o scanner
+    if request.session["role"] == "vigilante":
+        return RedirectResponse(url="/scanner", status_code=303)
+        
     return RedirectResponse(url="/app", status_code=303)
 
 
@@ -190,9 +195,14 @@ async def logout(request: Request):
 
 
 @app.get("/app")
-def main_app(user: str = Depends(get_current_user)):
+def main_app(request: Request, user: str = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/")
+        
+    # Segurança: Se vigilante tentar acessar o app principal, joga de volta pro scanner
+    if request.session.get("role") == "vigilante":
+        return RedirectResponse(url="/scanner")
+        
     # Força o navegador a não usar cache para o app principal, garantindo que as
     # alterações no HTML sejam vistas imediatamente.
     response = FileResponse("index.html", headers={
@@ -669,16 +679,37 @@ def monitor_panel(request: Request):
     response.headers["Expires"] = "0"
     return response
 
+# --- Rota do Scanner (Vigilante) ---
+@app.get("/scanner")
+def scanner_interface(request: Request):
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse(url="/")
+    return FileResponse("scanner.html")
+
+
 # Variável global para controlar a frequência de salvamento no banco (evitar spam)
 LAST_DB_SAVE = 0
 # Variáveis para cálculo de velocidade de rede
 LAST_NET_IO = None
 LAST_NET_TIME = None
 
+
 @app.get("/api/monitor/history")
 def api_monitor_history(date: str, user: str = Depends(get_logged_user)):
     """Retorna o histórico de performance para uma data específica (YYYY-MM-DD)."""
     return obter_historico_performance(date)
+
+
+@app.post("/api/monitor/history/clear")
+def api_clear_monitor_history(user: str = Depends(get_logged_user)):
+    """Limpa o histórico de performance."""
+    role = get_usuario(user)['role']
+    if role not in ['admin', 'dev']:
+        raise HTTPException(
+            status_code=403, detail="Apenas admin/dev pode limpar histórico.")
+    return limpar_historico_performance()
+
 
 @app.get("/api/server-status")
 def api_server_status(user: str = Depends(get_logged_user)):
@@ -695,10 +726,11 @@ def api_server_status(user: str = Depends(get_logged_user)):
     try:
         start = time.time()
         # Tenta conectar na raiz ou em um endpoint leve
-        urllib.request.urlopen("https://projeto-sistema-de-veiculos-production.up.railway.app/favicon.ico", timeout=2)
+        urllib.request.urlopen(
+            "https://projeto-sistema-de-veiculos-production.up.railway.app/favicon.ico", timeout=2)
         ping_railway = int((time.time() - start) * 1000)
     except:
-        ping_railway = 0 # Offline ou timeout
+        ping_railway = 0  # Offline ou timeout
 
     # --- Novos Recursos: Rede e Processos ---
     upload_speed = 0
@@ -715,8 +747,10 @@ def api_server_status(user: str = Depends(get_logged_user)):
         if LAST_NET_IO and LAST_NET_TIME:
             time_delta = current_time - LAST_NET_TIME
             if time_delta > 0:
-                upload_speed = (net_io.bytes_sent - LAST_NET_IO.bytes_sent) / time_delta
-                download_speed = (net_io.bytes_recv - LAST_NET_IO.bytes_recv) / time_delta
+                upload_speed = (net_io.bytes_sent -
+                                LAST_NET_IO.bytes_sent) / time_delta
+                download_speed = (net_io.bytes_recv -
+                                  LAST_NET_IO.bytes_recv) / time_delta
         LAST_NET_IO = net_io
         LAST_NET_TIME = current_time
 
@@ -724,8 +758,10 @@ def api_server_status(user: str = Depends(get_logged_user)):
         for proc in psutil.process_iter(['pid', 'name', 'memory_percent']):
             try:
                 top_processes.append(proc.info)
-            except: pass
-        top_processes = sorted(top_processes, key=lambda p: p['memory_percent'], reverse=True)[:5]
+            except:
+                pass
+        top_processes = sorted(
+            top_processes, key=lambda p: p['memory_percent'], reverse=True)[:5]
     except:
         pass
 
@@ -735,7 +771,8 @@ def api_server_status(user: str = Depends(get_logged_user)):
             health.get("cpu_usage", 0),
             health.get("ram_usage", 0),
             health.get("disk_usage", 0),
-            1, # Ping local é irrelevante aqui (sempre <1ms), salvamos 1 para constar
+            # Ping local é irrelevante aqui (sempre <1ms), salvamos 1 para constar
+            1,
             ping_railway
         )
         LAST_DB_SAVE = time.time()

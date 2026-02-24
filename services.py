@@ -589,8 +589,8 @@ def get_global_last_message_id():
 
 def salvar_historico_performance(cpu, ram, disk, ping_local, ping_railway):
     """Salva um snapshot da performance do servidor."""
-    fuso = pytz.timezone('America/Sao_Paulo')
-    data_hora = datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S") # Formato ISO para ordenação
+    # Salva em formato ISO com Timezone (ex: 2023-10-27T16:30:00-03:00) para o frontend converter corretamente
+    data_hora = datetime.now().astimezone().isoformat()
     
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -638,6 +638,13 @@ def obter_historico_performance(data_filtro):
             ORDER BY data_hora ASC
         """, (f"{data_filtro}%",))
         return [dict(row) for row in cursor.fetchall()]
+
+def limpar_historico_performance():
+    """Apaga todo o histórico de performance."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM historico_performance")
+        return {"status": "Histórico limpo com sucesso!"}
 
 # --- Funções de Histórico / Logs ---
 

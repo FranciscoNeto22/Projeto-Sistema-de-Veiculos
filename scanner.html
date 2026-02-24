@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Scanner de Placas - AutoGate</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
+    <style>
+        body {
+            background-color: #000;
+            color: white;
+        }
+
+        .scanner-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .btn-camera {
+            height: 150px;
+            font-size: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border: 2px dashed #fff;
+        }
+
+        .log-entry {
+            background: #222;
+            border-left: 4px solid #0d6efd;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="scanner-container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="m-0">📷 AutoGate Scanner</h4>
+            <a href="/logout" class="btn btn-sm btn-outline-danger">Sair</a>
+        </div>
+
+        <!-- Área Principal -->
+        <div class="card bg-dark text-white border-secondary mb-4">
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label text-muted small">PLACA DO VEÍCULO</label>
+                    <input type="text" id="placaInput"
+                        class="form-control form-control-lg text-center fw-bold text-uppercase" placeholder="ABC-1234"
+                        style="letter-spacing: 3px; font-size: 2rem;">
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <select class="form-select" id="tipoInput">
+                            <option value="Carro">🚗 Carro</option>
+                            <option value="Moto">🏍️ Moto</option>
+                            <option value="Caminhão">🚛 Caminhão</option>
+                            <option value="Visitante">👤 Visitante</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-success w-100 h-100 fw-bold" onclick="registrarEntrada()">✅
+                            REGISTRAR</button>
+                    </div>
+                </div>
+
+                <!-- Botão Câmera -->
+                <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;"
+                    onchange="processarImagem(this)">
+                <button class="btn btn-outline-light w-100 btn-camera"
+                    onclick="document.getElementById('cameraInput').click()">
+                    <span>📷</span>
+                    <span>ABRIR CÂMERA</span>
+                </button>
+
+                <div id="statusOCR" class="mt-2 text-center small text-warning d-none">Processando imagem...</div>
+            </div>
+        </div>
+
+        <!-- Histórico Rápido -->
+        <h6 class="text-muted border-bottom border-secondary pb-2">Últimos Registros (Sessão Atual)</h6>
+        <div id="historicoLocal">
+            <div class="text-center text-muted small mt-3">Nenhum registro ainda.</div>
+        </div>
+    </div>
+
+    <script>
+        async function processarImagem(input) {
+            if (input.files && input.files[0]) {
+                const statusDiv = document.getElementById('statusOCR');
+                const placaInput = document.getElementById('placaInput');
+
+                statusDiv.classList.remove('d-none');
+                statusDiv.textContent = "🔍 Lendo imagem... aguarde.";
+
+                try {
+                    const result = await Tesseract.recognize(
+                        input.files[0],
+                        'eng',
+                        { logger: m => console.log(m) }
+                    );
+
+                    const texto = result.data.text.replace(/[^A-Z0-9]/ig, "");
+
+                    // Tenta achar padrão de placa
+                    const match = texto.match(/[A-Z]{3}[0-9][0-9A-Z][0-9]{2}/i);
+
+                    if (match) {
+                        placaInput.value = match[0].toUpperCase();
+                        statusDiv.textContent = "Placa detectada!";
+                        statusDiv.className = "mt-2 text-center small text-success fw-bold";
+                        // Opcional: Registrar automaticamente se tiver certeza
+                        // registrarEntrada(); 
+                    } else {
+                        if (texto.length >= 7) {
+                            placaInput.value = texto.substring(0, 7).toUpperCase();
+                            statusDiv.textContent = "Texto inserido. Verifique.";
+                            statusDiv.className = "mt-2 text-center small text-warning";
+                        } else {
+                            statusDiv.textContent = "Não foi possível ler a placa. Tente novamente.";
+                            statusDiv.className = "mt-2 text-center small text-danger";
+                        }
+                    }
+                } catch (e) {
+                    statusDiv.textContent = "Erro na leitura.";
+                }
+            }
+        }
+
+        async function registrarEntrada() {
+            const placa = document.getElementById('placaInput').value.toUpperCase();
+            const tipo = document.getElementById('tipoInput').value;
+
+            if (!placa || placa.length < 5) return alert("Placa inválida.");
+
+            try {
+                const res = await fetch(`/entrada?placa=${placa}&tipo=${tipo}`, { method: 'POST' });
+                const data = await res.json();
+
+                if (data.status) {
+                    adicionarAoHistorico(placa, tipo, new Date().toLocaleTimeString());
+                    document.getElementById('placaInput').value = '';
+                    document.getElementById('statusOCR').classList.add('d-none');
+                    alert("Entrada Registrada: " + placa);
+                } else {
+                    alert("Erro: " + data.erro);
+                }
+            } catch (e) {
+                alert("Erro de conexão.");
+            }
+        }
+
+        function adicionarAoHistorico(placa, tipo, hora) {
+            const container = document.getElementById('historicoLocal');
+            if (container.children[0].classList.contains('text-center')) container.innerHTML = '';
+
+            const div = document.createElement('div');
+            div.className = 'log-entry d-flex justify-content-between align-items-center';
+            div.innerHTML = `
+                <div>
+                    <div class="fw-bold">${placa}</div>
+                    <div class="small text-muted">${tipo}</div>
+                </div>
+                <div class="text-success fw-bold">${hora}</div>
+            `;
+            container.prepend(div);
+        }
+    </script>
+</body>
+
+</html>
