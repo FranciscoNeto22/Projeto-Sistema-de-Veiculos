@@ -2786,20 +2786,17 @@
         }
 
         // --- Verificação de APK (Android) ---
-        async function verificarAndroid() {
-            const isAndroid = /Android/i.test(navigator.userAgent);
-            const ignorado = localStorage.getItem('ignorar_apk_download');
+        function verificarAndroid() {
+            // Debug: Forçando a exibição para teste (remova os comentários do IF depois)
+            console.log("Verificando Android... UserAgent: " + navigator.userAgent);
+            
+            // const isAndroid = /Android/i.test(navigator.userAgent);
+            // const ignorado = localStorage.getItem('ignorar_apk_download');
 
-            if (isAndroid && !ignorado) {
-                // Verifica se o arquivo APK existe no servidor antes de incomodar o usuário
-                try {
-                    const res = await fetch('/static/app-release.apk', { method: 'HEAD' });
-                    if (res.ok) {
-                        const modal = new bootstrap.Modal(document.getElementById('downloadApkModal'));
-                        setTimeout(() => modal.show(), 1500);
-                    }
-                } catch (e) { console.log("APK não encontrado, modal oculto."); }
-            }
+            // if (isAndroid && !ignorado) {
+                const modal = new bootstrap.Modal(document.getElementById('downloadApkModal'));
+                setTimeout(() => modal.show(), 1000);
+            // }
         }
 
         function ignorarDownloadApk() {
