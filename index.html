@@ -277,7 +277,8 @@
 
         <div class="d-flex align-items-center gap-3">
             <!-- Usuário Logado (Centralizado) -->
-            <div id="navbar-user-container" class="position-absolute top-50 start-50 translate-middle text-white fw-bold d-none d-md-block">
+            <div id="navbar-user-container"
+                class="position-absolute top-50 start-50 translate-middle text-white fw-bold d-none d-md-block">
                 Usuário: <span id="nav-username-display">...</span>
             </div>
 
@@ -319,13 +320,6 @@
                 <div>
                     <h5>Menu</h5>
                     <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link text-primary fw-bold" href="#" data-bs-toggle="modal"
-                                data-bs-target="#arquivosModal">
-                                ☁️ Arquivos / Nuvem <span class="badge bg-danger ms-1"
-                                    style="font-size: 0.6em;">NOVO</span>
-                            </a>
-                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#">Dashboard</a>
                         </li>
@@ -392,13 +386,6 @@
                 </div>
                 <div class="offcanvas-body d-flex flex-column">
                     <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link text-primary fw-bold" href="#" data-bs-toggle="modal"
-                                data-bs-target="#arquivosModal">
-                                ☁️ Arquivos / Nuvem <span class="badge bg-danger ms-1"
-                                    style="font-size: 0.6em;">NOVO</span>
-                            </a>
-                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#">Dashboard</a>
                         </li>
@@ -2124,6 +2111,9 @@
 
                 // Aplicar configurações
                 for (const [selector, config] of Object.entries(visualConfig)) {
+                    // PULA o container do usuário, pois ele é gerenciado dinamicamente e não deve ser sobrescrito
+                    if (selector === '#navbar-user-container') continue;
+
                     const els = document.querySelectorAll(selector);
                     els.forEach(el => {
                         if (config.text) el.innerText = config.text;
