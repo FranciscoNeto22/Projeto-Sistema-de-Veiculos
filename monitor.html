@@ -11,6 +11,8 @@
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#000000">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js para gráficos estilo Grafana -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             background-color: #121212;
@@ -21,13 +23,14 @@
         .card {
             background-color: #1e1e1e;
             border: 1px solid #333;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
         }
 
         .stat-value {
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             font-weight: bold;
-            color: #00ff00;
+            color: #fff;
         }
 
         .stat-label {
@@ -58,27 +61,21 @@
             background-color: #ffcc00;
         }
 
-        /* Animação de pulso para rede */
-        @keyframes pulse {
-            0% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.4;
-            }
-
-            100% {
-                opacity: 1;
-            }
+        .chart-container {
+            position: relative;
+            height: 180px;
+            width: 100%;
         }
 
-        .ping-indicator {
-            animation: pulse 2s infinite;
-        }
+        /* Ajuste para telas pequenas */
+        @media (max-width: 768px) {
+            .stat-value {
+                font-size: 1.2rem;
+            }
 
-        .progress-bar {
-            transition: width 0.4s ease-in-out;
+            .chart-container {
+                height: 150px;
+            }
         }
     </style>
 </head>
@@ -92,91 +89,156 @@
     <div id="data-hora-monitor" class="text-white text-center mb-4" style="font-family: monospace; font-size: 1.0rem;">
     </div>
 
-    <!-- Status Geral -->
-    <div class="card">
-        <div class="card-body text-center">
-            <div class="stat-label">Status do Servidor</div>
-            <div class="mt-2">
-                <span id="server-dot" class="status-dot offline"></span>
-                <span id="server-text" class="fw-bold ms-2">Desconectado</span>
+    <!-- LINHA 1: STATS RÁPIDOS (Estilo "Big Number") -->
+    <div class="row mb-3">
+        <div class="col-6 col-md-3">
+            <div class="card p-3 text-center h-100">
+                <div class="stat-label">Status Local</div>
+                <div class="mt-2">
+                    <span id="server-dot" class="status-dot offline"></span>
+                    <span id="server-text" class="fw-bold ms-1 text-white">OFF</span>
+                </div>
+                <div class="small text-white mt-1">Ping: <span id="ping-val">--</span> ms</div>
             </div>
-            <div class="mt-2 small text-light">Ping: <span id="ping-val">--</span> ms</div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card p-3 text-center h-100">
+                <div class="stat-label">Nuvem (Railway)</div>
+                <div class="mt-2">
+                    <span id="railway-dot" class="status-dot offline"></span>
+                    <span id="railway-text" class="fw-bold ms-1 text-white">...</span>
+                </div>
+                <div class="small text-white mt-1">Ping: <span id="railway-ping-val">--</span> ms</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card p-3 text-center h-100">
+                <div class="stat-label">Temperatura</div>
+                <div id="temp-val" class="stat-value text-warning">--°C</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card p-3 text-center h-100">
+                <div class="stat-label">Uptime</div>
+                <div id="uptime-val" class="stat-value text-info" style="font-size: 1.0rem;">--:--:--</div>
+            </div>
         </div>
     </div>
 
-    <!-- Status Railway / Nuvem -->
-    <div class="card">
-        <div class="card-body text-center">
-            <div class="stat-label">Servidor Railway (Nuvem)</div>
-            <div class="mt-2">
-                <span id="railway-dot" class="status-dot offline"></span>
-                <span id="railway-text" class="fw-bold ms-2">Verificando...</span>
-            </div>
-            <div class="mt-2 small text-light">Ping: <span id="railway-ping-val">--</span> ms</div>
-        </div>
-    </div>
-
-    <div class="row">
-        <!-- Uptime -->
-        <div class="col-6">
-            <div class="card h-100">
-                <div class="card-body text-center">
-                    <div class="stat-label">Tempo Ativo</div>
-                    <div id="uptime-val" class="stat-value text-info" style="font-size: 1.1rem;">--:--:--</div>
+    <!-- LINHA 2: GRÁFICOS CPU e RAM -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="card p-3">
+                <div class="d-flex justify-content-between">
+                    <span class="stat-label">CPU Usage</span>
+                    <span id="cpu-usage-val" class="text-white fw-bold">--%</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="cpuChart"></canvas>
                 </div>
             </div>
         </div>
-        <!-- DB Size -->
-        <div class="col-6">
-            <div class="card h-100">
-                <div class="card-body text-center">
-                    <div class="stat-label">Banco de Dados</div>
-                    <div id="db-size-val" class="stat-value text-warning" style="font-size: 1.2rem;">-- MB</div>
+        <div class="col-md-6">
+            <div class="card p-3">
+                <div class="d-flex justify-content-between">
+                    <span class="stat-label">Memory (RAM)</span>
+                    <span id="ram-usage-val" class="text-white fw-bold">--%</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="ramChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Recursos de Hardware (CPU/RAM/Disk) -->
-    <div class="card">
-        <div class="card-body">
-            <div class="stat-label mb-3 border-bottom border-secondary pb-1">Recursos do Servidor</div>
-
-            <div class="d-flex justify-content-between small text-light">
-                <span>CPU</span>
-                <span id="cpu-usage-val" class="text-white">--%</span>
+    <!-- LINHA 3: GRÁFICOS DISCO e REDE -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="card p-3">
+                <div class="d-flex justify-content-between">
+                    <span class="stat-label">Disk Usage</span>
+                    <span id="disk-usage-val" class="text-white fw-bold">--%</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="diskChart"></canvas>
+                </div>
             </div>
-            <div class="progress mb-3" style="height: 6px; background-color: #333;">
-                <div id="cpu-bar" class="progress-bar" style="width: 0%"></div>
-            </div>
-
-            <div class="d-flex justify-content-between small text-light">
-                <span>Memória RAM</span>
-                <span id="ram-usage-val" class="text-white">--%</span>
-            </div>
-            <div class="progress mb-3" style="height: 6px; background-color: #333;">
-                <div id="ram-bar" class="progress-bar" style="width: 0%"></div>
-            </div>
-
-            <div class="d-flex justify-content-between small text-light">
-                <span>Disco</span>
-                <span id="disk-usage-val" class="text-white">--%</span>
-            </div>
-            <div class="progress" style="height: 6px; background-color: #333;">
-                <div id="disk-bar" class="progress-bar" style="width: 0%"></div>
+        </div>
+        <div class="col-md-6">
+            <div class="card p-3">
+                <div class="d-flex justify-content-between">
+                    <span class="stat-label">Network Latency (Ping)</span>
+                    <span id="net-type" class="badge bg-secondary">--</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="pingChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Rede / Conexão -->
-    <div class="card">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center">
-                <span class="stat-label">Rede (Cliente)</span>
-                <span id="net-type" class="badge bg-secondary">--</span>
+    <!-- LINHA 4: REDE E PROCESSOS (NOVO) -->
+    <div class="row mb-3">
+        <!-- Velocidade de Rede -->
+        <div class="col-md-5 mb-3 mb-md-0">
+            <div class="card h-100 p-3">
+                <div class="stat-label mb-3">Velocidade de Rede (I/O)</div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-success">⬇️ Download</span>
+                    <span class="fw-bold text-white"><span id="net-down-val">0.0</span> KB/s</span>
+                </div>
+                <div class="progress mb-3" style="height: 6px; background: #333;">
+                    <div id="net-down-bar" class="progress-bar bg-success" style="width: 0%"></div>
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-primary">⬆️ Upload</span>
+                    <span class="fw-bold text-white"><span id="net-up-val">0.0</span> KB/s</span>
+                </div>
+                <div class="progress" style="height: 6px; background: #333;">
+                    <div id="net-up-bar" class="progress-bar bg-primary" style="width: 0%"></div>
+                </div>
             </div>
-            <div class="progress mt-2" style="height: 5px;">
-                <div id="net-bar" class="progress-bar bg-success" style="width: 0%"></div>
+        </div>
+
+        <!-- Top Processos -->
+        <div class="col-md-7">
+            <div class="card h-100 p-3">
+                <div class="stat-label mb-2">Top 5 Processos (Memória)</div>
+                <table class="table table-dark table-sm table-borderless small mb-0">
+                    <thead>
+                        <tr class="text-muted border-bottom border-secondary">
+                            <th>PID</th>
+                            <th>Nome</th>
+                            <th class="text-end">Memória</th>
+                        </tr>
+                    </thead>
+                    <tbody id="process-list">
+                        <tr><td colspan="3" class="text-center text-muted">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- LINHA 4: HISTÓRICO DE OSCILAÇÃO -->
+    <div class="card mb-3">
+        <div
+            class="card-header bg-dark border-bottom border-secondary d-flex justify-content-between align-items-center">
+            <span class="fw-bold">📜 Histórico de Oscilação (Ping)</span>
+            <div class="d-flex gap-2 align-items-center">
+                <label for="historyDate" class="small text-muted mb-0">Data:</label>
+                <input type="date" id="historyDate"
+                    class="form-control form-control-sm bg-secondary text-white border-0" style="width: 130px;"
+                    onchange="loadHistory()">
+            </div>
+        </div>
+        <div class="card-body p-3">
+            <div class="chart-container" style="height: 160px;">
+                <canvas id="historyChart"></canvas>
+            </div>
+            <div class="text-center mt-2 small text-muted">
+                * Dados salvos automaticamente a cada 1 minuto enquanto o monitor está ativo.
             </div>
         </div>
     </div>
@@ -204,6 +266,125 @@
 
     <script>
         const logDiv = document.getElementById('console-log');
+
+        // --- CONFIGURAÇÃO DOS GRÁFICOS (Chart.js) ---
+        const maxDataPoints = 30; // Quantos pontos mostrar no histórico
+
+        // Função auxiliar para criar configurações comuns
+        function createChartConfig(color, label) {
+            return {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        label: label,
+                        data: Array(maxDataPoints).fill(null),
+                        borderColor: color,
+                        backgroundColor: color + '20', // Transparência
+                        borderWidth: 2,
+                        pointRadius: 0, // Sem bolinhas (estilo Grafana)
+                        pointHoverRadius: 4,
+                        fill: true,
+                        tension: 0.4 // Curva suave
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false, // Desativa animação para performance
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false }, // Esconde eixo X
+                        y: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#888', font: { size: 10 } },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            };
+        }
+
+        // Configuração do Gráfico de Histórico
+        let historyChartInstance = null;
+
+        // Inicializa os 4 gráficos
+        const cpuChart = new Chart(document.getElementById('cpuChart'), createChartConfig('#ffc107', 'CPU %')); // Amarelo
+        const ramChart = new Chart(document.getElementById('ramChart'), createChartConfig('#0d6efd', 'RAM %')); // Azul
+        const diskChart = new Chart(document.getElementById('diskChart'), createChartConfig('#a020f0', 'Disk %')); // Roxo
+        const pingChart = new Chart(document.getElementById('pingChart'), createChartConfig('#198754', 'Ping (ms)')); // Verde
+
+        // Função para carregar e desenhar o histórico
+        async function loadHistory() {
+            const dateInput = document.getElementById('historyDate').value;
+            if (!dateInput) return;
+
+            try {
+                const res = await fetch(`/api/monitor/history?date=${dateInput}`);
+                if (!res.ok) throw new Error("Erro na API"); // Evita erro silencioso
+                const data = await res.json();
+
+                const labels = data.map(d => d.data_hora.split(' ')[1].substring(0, 5)); // Pega só HH:MM
+                const pingRailwayData = data.map(d => d.ping_railway);
+                const cpuData = data.map(d => d.cpu_usage);
+
+                const ctx = document.getElementById('historyChart').getContext('2d');
+
+                if (historyChartInstance) historyChartInstance.destroy();
+
+                historyChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Ping Nuvem (ms)',
+                                data: pingRailwayData,
+                                borderColor: '#00ff00',
+                                backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.3,
+                                fill: true
+                            },
+                            {
+                                label: 'CPU (%)',
+                                data: cpuData,
+                                borderColor: '#ffc107',
+                                borderWidth: 1,
+                                borderDash: [5, 5], // Linha tracejada
+                                pointRadius: 0,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { display: true, labels: { color: '#fff' } },
+                            tooltip: { mode: 'index', intersect: false }
+                        },
+                        scales: {
+                            x: { ticks: { color: '#888' }, grid: { color: '#333' } },
+                            y: { beginAtZero: true, ticks: { color: '#888' }, grid: { color: '#333' } }
+                        }
+                    }
+                });
+
+            } catch (e) {
+                console.error("Erro ao carregar histórico:", e);
+                log("Erro ao carregar histórico.");
+            }
+        }
+
+        // Função para atualizar um gráfico
+        function updateChartData(chart, newValue) {
+            const data = chart.data.datasets[0].data;
+            data.shift(); // Remove o primeiro
+            data.push(newValue); // Adiciona o novo
+            chart.update();
+        }
 
         // COLOQUE AQUI O LINK DO SEU RAILWAY (Ex: https://projeto-sistema-de-veiculos-production.up.railway.app)
         const RAILWAY_URL = "https://projeto-sistema-de-veiculos-production.up.railway.app"; // Usando Google como teste de internet se não tiver o link
@@ -236,38 +417,59 @@
                 const pingSpan = document.getElementById('ping-val');
                 pingSpan.textContent = latency;
 
+                // Atualiza gráfico de Ping
+                updateChartData(pingChart, latency);
+
                 document.getElementById('uptime-val').textContent = data.uptime;
-                document.getElementById('db-size-val').textContent = data.db_size;
 
                 // --- NOVO: Atualiza o monitor de recursos ---
                 const cpu = data.cpu_usage || 0;
                 const ram = data.ram_usage || 0;
                 const disk = data.disk_usage || 0;
+                const temp = data.cpu_temp || 0;
+
+                // Atualiza Temperatura
+                document.getElementById('temp-val').textContent = temp > 0 ? temp + '°C' : '--';
 
                 document.getElementById('cpu-usage-val').textContent = cpu.toFixed(1) + '%';
                 document.getElementById('ram-usage-val').textContent = ram.toFixed(1) + '%';
                 document.getElementById('disk-usage-val').textContent = disk.toFixed(1) + '%';
 
-                const cpuBar = document.getElementById('cpu-bar');
-                const ramBar = document.getElementById('ram-bar');
-                const diskBar = document.getElementById('disk-bar');
+                // Atualiza Gráficos de Hardware
+                updateChartData(cpuChart, cpu);
+                updateChartData(ramChart, ram);
+                updateChartData(diskChart, disk);
 
-                cpuBar.style.width = cpu + '%';
-                ramBar.style.width = ram + '%';
-                diskBar.style.width = disk + '%';
+                // --- NOVO: Atualiza Rede e Processos ---
+                const down = data.net_download_kb || 0;
+                const up = data.net_upload_kb || 0;
+                
+                document.getElementById('net-down-val').textContent = down;
+                document.getElementById('net-up-val').textContent = up;
+                
+                // Barras de rede (escala visual arbitrária, ex: max 1MB/s para barra cheia)
+                document.getElementById('net-down-bar').style.width = Math.min((down / 1024) * 100, 100) + '%';
+                document.getElementById('net-up-bar').style.width = Math.min((up / 1024) * 100, 100) + '%';
 
-                // Altera a cor da barra com base no uso
-                [cpuBar, ramBar, diskBar].forEach((bar, index) => {
-                    const value = [cpu, ram, disk][index];
-                    bar.className = 'progress-bar ' + (value > 90 ? 'bg-danger' : value > 70 ? 'bg-warning' : 'bg-success');
-                });
+                // Lista de Processos
+                const procList = document.getElementById('process-list');
+                if (data.top_processes && data.top_processes.length > 0) {
+                    procList.innerHTML = data.top_processes.map(p => `
+                        <tr>
+                            <td class="text-muted">${p.pid}</td>
+                            <td class="text-white">${p.name}</td>
+                            <td class="text-end text-warning">${p.memory_percent.toFixed(1)}%</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    procList.innerHTML = '<tr><td colspan="3" class="text-center text-muted">-</td></tr>';
+                }
 
                 // Indicador de qualidade da rede baseado no ping
-                const netBar = document.getElementById('net-bar');
                 // A classe 'fw-bold' foi movida para o elemento pai para destacar toda a linha.
-                if (latency < 100) { netBar.style.width = '100%'; netBar.className = 'progress-bar bg-success'; pingSpan.className = 'text-success fw-bold'; }
-                else if (latency < 500) { netBar.style.width = '70%'; netBar.className = 'progress-bar bg-warning'; pingSpan.className = 'text-warning fw-bold'; }
-                else { netBar.style.width = '30%'; netBar.className = 'progress-bar bg-danger'; pingSpan.className = 'text-danger fw-bold'; }
+                if (latency < 100) { pingSpan.className = 'text-success fw-bold'; }
+                else if (latency < 500) { pingSpan.className = 'text-warning fw-bold'; }
+                else { pingSpan.className = 'text-danger fw-bold'; }
 
             } catch (e) {
                 document.getElementById('server-dot').className = 'status-dot offline';
@@ -328,6 +530,24 @@
             const hora = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             if (dataHoraEl) dataHoraEl.textContent = `${data} ${hora}`;
         }
+
+        // Função para pegar data local YYYY-MM-DD
+        function getLocalDate() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        // Define a data de hoje no input de histórico ao carregar
+        const today = getLocalDate();
+        document.getElementById('historyDate').value = today;
+        loadHistory(); // Carrega o histórico de hoje
+
+        // Atualiza o histórico a cada 30s para mostrar dados em tempo real
+        setInterval(() => {
+            if (document.getElementById('historyDate').value === getLocalDate()) {
+                loadHistory();
+            }
+        }, 30000);
 
         // Loop de verificação (a cada 2 segundos)
         setInterval(checkServer, 2000);

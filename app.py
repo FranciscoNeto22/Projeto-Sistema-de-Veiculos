@@ -5,6 +5,8 @@ import uvicorn
 import subprocess
 import shutil
 import uuid
+import time
+import urllib.request
 from fastapi import FastAPI, HTTPException, Form, Request, Depends, Response, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
@@ -43,7 +45,8 @@ from services import (
     gerar_excel_historico, listar_usuarios_do_historico,
     close_protocols_bulk, salvar_arquivo_db, listar_arquivos_db,
     get_arquivo_por_id, excluir_arquivo_db,
-    get_system_health
+    get_system_health, salvar_historico_performance,
+    obter_historico_performance
 )
 
 
@@ -666,15 +669,76 @@ def monitor_panel(request: Request):
     response.headers["Expires"] = "0"
     return response
 
+# Variável global para controlar a frequência de salvamento no banco (evitar spam)
+LAST_DB_SAVE = 0
+# Variáveis para cálculo de velocidade de rede
+LAST_NET_IO = None
+LAST_NET_TIME = None
+
+@app.get("/api/monitor/history")
+def api_monitor_history(date: str, user: str = Depends(get_logged_user)):
+    """Retorna o histórico de performance para uma data específica (YYYY-MM-DD)."""
+    return obter_historico_performance(date)
 
 @app.get("/api/server-status")
 def api_server_status(user: str = Depends(get_logged_user)):
+    global LAST_DB_SAVE, LAST_NET_IO, LAST_NET_TIME
     # Calcula tempo de atividade (Uptime)
     now = datetime.now()
     uptime = now - START_TIME
 
     # Dados do sistema
     health = get_system_health()
+
+    # Medir Ping do Railway (Backend side)
+    ping_railway = 0
+    try:
+        start = time.time()
+        # Tenta conectar na raiz ou em um endpoint leve
+        urllib.request.urlopen("https://projeto-sistema-de-veiculos-production.up.railway.app/favicon.ico", timeout=2)
+        ping_railway = int((time.time() - start) * 1000)
+    except:
+        ping_railway = 0 # Offline ou timeout
+
+    # --- Novos Recursos: Rede e Processos ---
+    upload_speed = 0
+    download_speed = 0
+    top_processes = []
+
+    # Verifica se psutil está disponível (importado no topo ou services)
+    # Como services.py importa psutil, podemos tentar usar aqui se estiver no escopo ou reimportar
+    try:
+        import psutil
+        # Cálculo de Velocidade de Rede
+        net_io = psutil.net_io_counters()
+        current_time = time.time()
+        if LAST_NET_IO and LAST_NET_TIME:
+            time_delta = current_time - LAST_NET_TIME
+            if time_delta > 0:
+                upload_speed = (net_io.bytes_sent - LAST_NET_IO.bytes_sent) / time_delta
+                download_speed = (net_io.bytes_recv - LAST_NET_IO.bytes_recv) / time_delta
+        LAST_NET_IO = net_io
+        LAST_NET_TIME = current_time
+
+        # Top 5 Processos por Memória
+        for proc in psutil.process_iter(['pid', 'name', 'memory_percent']):
+            try:
+                top_processes.append(proc.info)
+            except: pass
+        top_processes = sorted(top_processes, key=lambda p: p['memory_percent'], reverse=True)[:5]
+    except:
+        pass
+
+    # Salvar no histórico a cada 60 segundos
+    if time.time() - LAST_DB_SAVE > 60:
+        salvar_historico_performance(
+            health.get("cpu_usage", 0),
+            health.get("ram_usage", 0),
+            health.get("disk_usage", 0),
+            1, # Ping local é irrelevante aqui (sempre <1ms), salvamos 1 para constar
+            ping_railway
+        )
+        LAST_DB_SAVE = time.time()
 
     return {
         "uptime": str(uptime).split('.')[0],  # Remove milissegundos
@@ -684,6 +748,10 @@ def api_server_status(user: str = Depends(get_logged_user)):
         "cpu_usage": health.get("cpu_usage", 0),
         "ram_usage": health.get("ram_usage", 0),
         "disk_usage": health.get("disk_usage", 0),
+        "railway_ping_backend": ping_railway,
+        "net_upload_kb": round(upload_speed / 1024, 1),
+        "net_download_kb": round(download_speed / 1024, 1),
+        "top_processes": top_processes
     }
 
 

@@ -303,6 +303,19 @@ def setup_usuarios():
             )
         """)
 
+        # --- MONITORAMENTO / PERFORMANCE ---
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS historico_performance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data_hora TEXT,
+                cpu_usage REAL,
+                ram_usage REAL,
+                disk_usage REAL,
+                ping_local INTEGER,
+                ping_railway INTEGER
+            )
+        """)
+
         # Criar usuário padrão se não existir
         cursor.execute("SELECT id FROM usuarios WHERE username = 'admin'")
         if not cursor.fetchone():
@@ -571,6 +584,60 @@ def get_global_last_message_id():
         cursor.execute("SELECT MAX(id) FROM chat_mensagens")
         row = cursor.fetchone()
         return row[0] if row and row[0] else 0
+
+# --- Funções de Monitoramento Histórico ---
+
+def salvar_historico_performance(cpu, ram, disk, ping_local, ping_railway):
+    """Salva um snapshot da performance do servidor."""
+    fuso = pytz.timezone('America/Sao_Paulo')
+    data_hora = datetime.now(fuso).strftime("%Y-%m-%d %H:%M:%S") # Formato ISO para ordenação
+    
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        # GARANTIA: Cria a tabela se não existir (corrige o erro sem precisar reiniciar)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS historico_performance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data_hora TEXT,
+                cpu_usage REAL,
+                ram_usage REAL,
+                disk_usage REAL,
+                ping_local INTEGER,
+                ping_railway INTEGER
+            )
+        """)
+        cursor.execute("""
+            INSERT INTO historico_performance (data_hora, cpu_usage, ram_usage, disk_usage, ping_local, ping_railway)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (data_hora, cpu, ram, disk, ping_local, ping_railway))
+
+def obter_historico_performance(data_filtro):
+    """Busca o histórico de um dia específico (YYYY-MM-DD)."""
+    with get_db_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # GARANTIA: Cria a tabela se não existir
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS historico_performance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data_hora TEXT,
+                cpu_usage REAL,
+                ram_usage REAL,
+                disk_usage REAL,
+                ping_local INTEGER,
+                ping_railway INTEGER
+            )
+        """)
+
+        # Filtra pela data (string startswith)
+        cursor.execute("""
+            SELECT data_hora, cpu_usage, ram_usage, ping_local, ping_railway 
+            FROM historico_performance 
+            WHERE data_hora LIKE ? 
+            ORDER BY data_hora ASC
+        """, (f"{data_filtro}%",))
+        return [dict(row) for row in cursor.fetchall()]
 
 # --- Funções de Histórico / Logs ---
 
