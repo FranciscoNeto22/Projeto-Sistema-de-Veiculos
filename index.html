@@ -1092,7 +1092,7 @@
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 800; 
+                        const MAX_WIDTH = 800;
                         const scaleSize = MAX_WIDTH / img.width;
                         const width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
                         const height = (img.width > MAX_WIDTH) ? img.height * scaleSize : img.height;
@@ -1101,15 +1101,16 @@
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-                        
-                        // Escala de cinza
+
+                        // Binarização (Preto e Branco) para destacar letras e remover ruído
                         const imageData = ctx.getImageData(0, 0, width, height);
                         const data = imageData.data;
                         for (let i = 0; i < data.length; i += 4) {
-                            const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                            data[i] = avg;
-                            data[i + 1] = avg;
-                            data[i + 2] = avg;
+                            const gray = data[i] * 0.3 + data[i + 1] * 0.59 + data[i + 2] * 0.11;
+                            const val = gray > 100 ? 255 : 0; // Threshold: Se for cinza claro vira branco, senão preto
+                            data[i] = val;
+                            data[i + 1] = val;
+                            data[i + 2] = val;
                         }
                         ctx.putImageData(imageData, 0, 0);
 
@@ -1127,23 +1128,25 @@
                 const placaInput = document.getElementById('novaEntradaPlaca');
 
                 statusDiv.classList.remove('d-none');
-                statusDiv.textContent = "Otimizando imagem...";
+                statusDiv.textContent = "Aplicando filtro P&B...";
                 statusDiv.className = "form-text text-warning fw-bold";
 
                 try {
                     // 1. Redimensiona
                     const imgUrl = await redimensionarImagem(input.files[0]);
-                    
+
                     statusDiv.textContent = "Lendo caracteres...";
 
                     const result = await Tesseract.recognize(
                         imgUrl,
                         'eng',
-                        { logger: m => {
-                            if (m.status === 'recognizing text') {
-                                statusDiv.textContent = `Lendo... ${Math.round(m.progress * 100)}%`;
+                        {
+                            logger: m => {
+                                if (m.status === 'recognizing text') {
+                                    statusDiv.textContent = `Lendo... ${Math.round(m.progress * 100)}%`;
+                                }
                             }
-                        }}
+                        }
                     );
 
                     // Limpa o texto encontrado mantendo apenas letras e números
