@@ -1084,20 +1084,66 @@
     </div>
 
     <script>
+        // Função auxiliar para redimensionar imagem (Melhora performance do OCR)
+        function redimensionarImagem(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 800; 
+                        const scaleSize = MAX_WIDTH / img.width;
+                        const width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
+                        const height = (img.width > MAX_WIDTH) ? img.height * scaleSize : img.height;
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Escala de cinza
+                        const imageData = ctx.getImageData(0, 0, width, height);
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                            data[i] = avg;
+                            data[i + 1] = avg;
+                            data[i + 2] = avg;
+                        }
+                        ctx.putImageData(imageData, 0, 0);
+
+                        resolve(canvas.toDataURL('image/jpeg'));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
         async function lerPlacaDaImagem(input) {
             if (input.files && input.files[0]) {
                 const statusDiv = document.getElementById('ocr-status');
                 const placaInput = document.getElementById('novaEntradaPlaca');
 
                 statusDiv.classList.remove('d-none');
-                statusDiv.textContent = "Processando imagem... (Isso pode levar alguns segundos)";
+                statusDiv.textContent = "Otimizando imagem...";
                 statusDiv.className = "form-text text-warning fw-bold";
 
                 try {
+                    // 1. Redimensiona
+                    const imgUrl = await redimensionarImagem(input.files[0]);
+                    
+                    statusDiv.textContent = "Lendo caracteres...";
+
                     const result = await Tesseract.recognize(
-                        input.files[0],
+                        imgUrl,
                         'eng',
-                        { logger: m => console.log(m) }
+                        { logger: m => {
+                            if (m.status === 'recognizing text') {
+                                statusDiv.textContent = `Lendo... ${Math.round(m.progress * 100)}%`;
+                            }
+                        }}
                     );
 
                     // Limpa o texto encontrado mantendo apenas letras e números
