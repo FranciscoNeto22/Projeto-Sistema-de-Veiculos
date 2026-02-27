@@ -276,7 +276,12 @@
         const maxDataPoints = 30; // Quantos pontos mostrar no histórico
 
         // Função auxiliar para criar configurações comuns
-        function createChartConfig(color, label) {
+        function createChartConfig(canvasId, color, label) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 180);
+            gradient.addColorStop(0, color + '66'); // 40% opacidade no topo
+            gradient.addColorStop(1, color + '00'); // 0% opacidade na base
+
             return {
                 type: 'line',
                 data: {
@@ -285,17 +290,20 @@
                         label: label,
                         data: Array(maxDataPoints).fill(null),
                         borderColor: color,
-                        backgroundColor: color + '20', // Transparência
+                        backgroundColor: gradient, // Gradient Fill (Estilo Grafana)
                         borderWidth: 2,
-                        pointRadius: 0, // Sem bolinhas (estilo Grafana)
+                        pointRadius: 2, // Pontos pequenos para garantir visibilidade
                         pointHoverRadius: 4,
                         fill: true,
-                        tension: 0.4 // Curva suave
+                        tension: 0.4, // Curva suave
+                        cubicInterpolationMode: 'monotone', // Suavização Monotone (Fluida)
+                        spanGaps: true // Conecta pontos vazios
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false }, // Tooltip aparece ao passar o mouse na linha
                     animation: false, // Desativa animação para performance
                     plugins: { legend: { display: false } },
                     scales: {
@@ -314,10 +322,10 @@
         let historyChartInstance = null;
 
         // Inicializa os 4 gráficos
-        const cpuChart = new Chart(document.getElementById('cpuChart'), createChartConfig('#ffc107', 'CPU %')); // Amarelo
-        const ramChart = new Chart(document.getElementById('ramChart'), createChartConfig('#0d6efd', 'RAM %')); // Azul
-        const diskChart = new Chart(document.getElementById('diskChart'), createChartConfig('#a020f0', 'Disk %')); // Roxo
-        const pingChart = new Chart(document.getElementById('pingChart'), createChartConfig('#198754', 'Ping (ms)')); // Verde
+        const cpuChart = new Chart(document.getElementById('cpuChart'), createChartConfig('cpuChart', '#ffc107', 'CPU %')); // Amarelo
+        const ramChart = new Chart(document.getElementById('ramChart'), createChartConfig('ramChart', '#0d6efd', 'RAM %')); // Azul
+        const diskChart = new Chart(document.getElementById('diskChart'), createChartConfig('diskChart', '#a020f0', 'Disk %')); // Roxo
+        const pingChart = new Chart(document.getElementById('pingChart'), createChartConfig('pingChart', '#198754', 'Ping (ms)')); // Verde
 
         // Gera labels para o dia todo (00:00 até 23:59) para o eixo X fixo
         const fullDayLabels = [];
@@ -355,7 +363,7 @@
 
                     if (index >= 0 && index < totalSlots) {
                         // Adiciona os valores para calcular a média depois
-                        if (d.ping_railway !== null && d.ping_railway > 0) { // Ignora pings 0 (offline) na média
+                        if (d.ping_railway !== null) { // Aceita 0 para mostrar no gráfico
                             aggregatedData[index].ping.sum += d.ping_railway;
                             aggregatedData[index].ping.count++;
                         }
@@ -374,6 +382,21 @@
                     slot.cpu.count > 0 ? Math.round(slot.cpu.sum / slot.cpu.count) : null
                 );
 
+                // --- AJUSTE: Remove o espaço vazio inicial (antes de ter dados) ---
+                let startIdx = 0;
+                for (let i = 0; i < totalSlots; i++) {
+                    if (pingRailwayData[i] !== null || cpuData[i] !== null) {
+                        startIdx = i;
+                        break;
+                    }
+                }
+                // Recua 2 slots (20 min) para dar um respiro visual, se possível
+                startIdx = Math.max(0, startIdx - 2);
+
+                const finalLabels = fullDayLabels.slice(startIdx);
+                const finalPing = pingRailwayData.slice(startIdx);
+                const finalCpu = cpuData.slice(startIdx);
+
                 const ctx = document.getElementById('historyChart').getContext('2d');
 
                 if (historyChartInstance) historyChartInstance.destroy(); // Destroi o gráfico antigo para recriar
@@ -391,15 +414,15 @@
                 historyChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: fullDayLabels,
+                        labels: finalLabels,
                         datasets: [
                             {
                                 label: 'Ping Nuvem (ms)',
-                                data: pingRailwayData,
+                                data: finalPing,
                                 borderColor: '#00ff00',
                                 backgroundColor: pingGradient,
                                 borderWidth: 2,
-                                pointRadius: 0, // Oculta os pontos fixos
+                                pointRadius: 2, // Pontos pequenos visíveis
                                 pointHoverRadius: 5, // Mostra ponto no hover
                                 pointHitRadius: 10, // Aumenta área de hover
                                 pointBackgroundColor: '#00ff00',
@@ -411,11 +434,11 @@
                             },
                             {
                                 label: 'CPU (%)',
-                                data: cpuData,
+                                data: finalCpu,
                                 borderColor: '#ffc107',
                                 backgroundColor: cpuGradient,
                                 borderWidth: 2, // Linha mais grossa para consistência
-                                pointRadius: 0, // Oculta os pontos fixos
+                                pointRadius: 2, // Pontos pequenos visíveis
                                 pointHoverRadius: 5, // Mostra ponto no hover
                                 pointHitRadius: 10, // Aumenta área de hover
                                 pointBackgroundColor: '#ffc107',
