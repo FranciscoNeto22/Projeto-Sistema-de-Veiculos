@@ -30,6 +30,9 @@
                     <button type="submit" class="btn btn-primary btn-lg">Entrar</button>
                 </div>
             </form>
+            <div class="text-center mt-4 text-muted small">
+                &copy; <span id="ano-login"></span> AutoGate System
+            </div>
         </div>
     </div>
 
@@ -43,6 +46,8 @@
                     errorMessage.classList.remove('d-none');
                 }
             }
+            // Ano atual
+            document.getElementById('ano-login').textContent = new Date().getFullYear();
         };
     </script>
 

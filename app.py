@@ -6,7 +6,7 @@ import uvicorn
 import subprocess
 import shutil
 import uuid
-import time
+import time, httpx
 import urllib.request
 from fastapi import FastAPI, HTTPException, Form, Request, Depends, Response, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -99,31 +99,36 @@ class AppVersionModel(BaseModel):
 
 
 async def log_performance_periodically():
-    """Tarefa de fundo que salva a performance do servidor a cada minuto, 24/7."""
-    while True:
-        await asyncio.sleep(60)  # Espera 1 minuto
-        try:
-            health = get_system_health()
-            ping_railway = 0
+    """Tarefa de fundo que salva a performance do servidor a cada 5 minutos, 24/7."""
+    # Criar um cliente HTTP assíncrono que será reutilizado
+    async with httpx.AsyncClient() as client:
+        while True:
+            # A tarefa agora espera 5 minutos. 1 minuto é muito agressivo e pode
+            # consumir recursos desnecessários. 5 minutos é suficiente para
+            # manter o servidor "acordado" na maioria das plataformas.
+            await asyncio.sleep(300)  # Espera 5 minutos
             try:
-                start_time = time.time()
-                # Tenta conectar em um endpoint leve para medir latência
-                urllib.request.urlopen(
-                    "https://projeto-sistema-de-veiculos-production.up.railway.app/app-version", timeout=5)
-                ping_railway = int((time.time() - start_time) * 1000)
-            except Exception:
-                ping_railway = 0  # Marca como 0 se falhar
+                health = get_system_health()
+                ping_railway = 0
+                try:
+                    start_time = time.time()
+                    # Usa o cliente assíncrono para não bloquear o servidor
+                    await client.get(
+                        "https://projeto-sistema-de-veiculos-production.up.railway.app/app-version", timeout=10)
+                    ping_railway = int((time.time() - start_time) * 1000)
+                except Exception:
+                    ping_railway = 0  # Marca como 0 se falhar
 
-            salvar_historico_performance(
-                health.get("cpu_usage", 0),
-                health.get("ram_usage", 0),
-                health.get("disk_usage", 0),
-                1,  # Ping local (irrelevante no servidor)
-                ping_railway
-            )
-        except Exception as e:
-            # Imprime o erro no console do servidor para debug, mas não para a tarefa
-            print(f"ERRO NA TAREFA DE HISTÓRICO: {e}")
+                salvar_historico_performance(
+                    health.get("cpu_usage", 0),
+                    health.get("ram_usage", 0),
+                    health.get("disk_usage", 0),
+                    1,  # Ping local (irrelevante no servidor)
+                    ping_railway
+                )
+            except Exception as e:
+                # Imprime o erro no console do servidor para debug, mas não para a tarefa
+                print(f"ERRO NA TAREFA DE HISTÓRICO: {e}")
 
 
 app = FastAPI(title="API Controle de Veículos")
@@ -338,6 +343,58 @@ def estatisticas(user: str = Depends(get_logged_user)):
     return obter_estatisticas()
 
 # --- Rotas de Histórico (Logs) ---
+
+@app.get("/api/relatorio/evolucao")
+def api_download_relatorio_evolucao(user: str = Depends(get_logged_user)):
+    """Gera e baixa o Excel com as atualizações do sistema."""
+    import pandas as pd
+    
+    # Dados do Realizado
+    dados_realizado = [
+        {"Recurso": "Monitoramento de Servidor", "Detalhes": "Painel com CPU, RAM, Disco, Ping (Local/Railway) e Gráficos Históricos.", "Status": "Concluído"},
+        {"Recurso": "Interface Responsiva Inteligente", "Detalhes": "Ajuste automático de escala: 'Zoom Out' (Placa de Vídeo) no PC e Normal no Mobile.", "Status": "Concluído"},
+        {"Recurso": "Indicadores de Rede Avançados", "Detalhes": "Detecção automática de WiFi vs Cabo e velocímetro no Navbar.", "Status": "Concluído"},
+        {"Recurso": "Sistema de Chat/Suporte", "Detalhes": "Chat interno com geração de protocolos, status (aberto/fechado) e avaliação.", "Status": "Concluído"},
+        {"Recurso": "Leitura de Placa (OCR)", "Detalhes": "Integração com câmera e Tesseract.js para leitura automática de placas.", "Status": "Concluído"},
+        {"Recurso": "Gestão de Arquivos (Nuvem)", "Detalhes": "Upload e download de arquivos internos no servidor.", "Status": "Concluído"},
+        {"Recurso": "Controle de Acesso (Roles)", "Detalhes": "Níveis hierárquicos: Admin, Gerente, Operador, Vigilante, Dev.", "Status": "Concluído"},
+        {"Recurso": "Editor Visual (No-Code)", "Detalhes": "Ferramenta para alterar textos e cores clicando com botão direito (Modo Dev).", "Status": "Concluído"},
+        {"Recurso": "Monitoramento 24/7", "Detalhes": "Tarefa de fundo para manter histórico de performance mesmo sem acesso ao site.", "Status": "Concluído"},
+        {"Recurso": "Painel SQL", "Detalhes": "Ferramenta para execução de queries e correção de banco direto pelo navegador.", "Status": "Concluído"},
+        {"Recurso": "Copyright Dinâmico", "Detalhes": "Ano e versão atualizados automaticamente no rodapé de todas as telas.", "Status": "Concluído"},
+        {"Recurso": "Widgets de Utilidade", "Detalhes": "Previsão do tempo e Calendário integrados ao topo do sistema.", "Status": "Concluído"},
+        {"Recurso": "Scanner Mobile (Vigilante)", "Detalhes": "Interface simplificada e leve focada apenas na leitura de placas.", "Status": "Concluído"},
+    ]
+
+    # Dados do Futuro
+    dados_futuro = [
+        {"Recurso": "Integração Câmeras IP (RTSP)", "Detalhes": "Ler placas automaticamente de câmeras de segurança (sem precisar clicar/tirar foto).", "Prioridade": "Alta"},
+        {"Recurso": "Módulo Financeiro", "Detalhes": "Cálculo de valor por tempo de estadia, gestão de mensalistas e integração Pix.", "Prioridade": "Alta"},
+        {"Recurso": "App Mobile Nativo", "Detalhes": "Aplicativo .apk/.ipa instalado no celular com notificações push reais.", "Prioridade": "Média"},
+        {"Recurso": "Controle de Hardware (IoT)", "Detalhes": "Abrir cancelas e portões automaticamente via Arduino/ESP32 ao reconhecer placa.", "Prioridade": "Média"},
+        {"Recurso": "Reconhecimento Facial", "Detalhes": "Identificar motoristas e funcionários pela câmera na entrada.", "Prioridade": "Baixa"},
+        {"Recurso": "Dashboard BI Avançado", "Detalhes": "Gráficos de fluxo de veículos, horários de pico e previsão de faturamento.", "Prioridade": "Baixa"},
+        {"Recurso": "Backup em Nuvem Externa", "Detalhes": "Salvar banco de dados no Google Drive/AWS S3 automaticamente para segurança total.", "Prioridade": "Baixa"},
+    ]
+
+    df_realizado = pd.DataFrame(dados_realizado)
+    df_futuro = pd.DataFrame(dados_futuro)
+
+    nome_arquivo = "Relatorio_Evolucao_Sistema.xlsx"
+    caminho_completo = os.path.join("uploads", nome_arquivo)
+
+    # Salvar o Excel
+    with pd.ExcelWriter(caminho_completo, engine='openpyxl') as writer:
+        df_realizado.to_excel(writer, sheet_name='Realizado', index=False)
+        df_futuro.to_excel(writer, sheet_name='Futuro (Roadmap)', index=False)
+        
+        # Ajuste visual das colunas
+        for sheet in writer.sheets.values():
+            sheet.column_dimensions['A'].width = 35
+            sheet.column_dimensions['B'].width = 70
+            sheet.column_dimensions['C'].width = 15
+
+    return FileResponse(caminho_completo, filename=nome_arquivo, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
 @app.get("/api/historico")

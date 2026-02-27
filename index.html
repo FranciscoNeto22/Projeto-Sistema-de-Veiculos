@@ -13,6 +13,21 @@
 
     <!-- === ADICIONADO: Estilos para o indicador de rede === -->
     <style>
+        /* AJUSTE DE ESCALA RESPONSIVO */
+        /* Desktop (acima de 768px): Mantém o visual "Zoom Out" */
+        @media (min-width: 768px) {
+            html {
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Mobile: Restaura escala padrão para leitura e toque */
+        @media (max-width: 767.98px) {
+            html {
+                font-size: 1rem;
+            }
+        }
+
         #status-rede.online #bolinha-status {
             color: #00cc44;
             /* verde vivo - conectado */
@@ -49,6 +64,9 @@
             background-color: #e9f4ff !important;
             /* azul claro suave */
             border-right: 1px solid #d6e6ff;
+            /* Ajuste para o sidebar não cortar o botão Sair */
+            height: calc(100vh - 60px) !important;
+            overflow-y: auto;
         }
 
         .col-md-2 h5 {
@@ -275,6 +293,12 @@
             <button class="btn btn-outline-light d-md-none me-2" type="button" data-bs-toggle="offcanvas"
                 data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu" aria-label="Abrir menu">☰</button>
             <span class="navbar-brand mb-0 h1">🚗 AutoGate</span>
+            <!-- Widget de Rede (Esquerda) - Ícone maior e mais espaço -->
+            <div class="d-flex align-items-center ms-3 p-1 rounded border border-secondary bg-dark text-white"
+                id="network-widget-left" style="font-size: 0.8rem;">
+                <span id="net-icon-left" class="me-2" style="font-size: 1.2rem; line-height: 1;">📡</span>
+                <span id="net-text-left" class="fw-bold">Verificando...</span>
+            </div>
         </div>
 
         <div class="d-flex align-items-center gap-3">
@@ -341,7 +365,7 @@
                                 data-bs-target="#consultaCadastroModal">Consultar Cadastros</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">Relatórios</a>
+                            <a class="nav-link" href="/api/relatorio/evolucao" target="_blank">📊 Relatório de Evolução</a>
                         </li>
                         <li class="nav-item d-none" id="menu-historico">
                             <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#historicoModal">📜
@@ -362,6 +386,9 @@
                             <div class="nav-link text-success" data-bs-toggle="modal"
                                 data-bs-target="#publishUpdateModal">
                                 🚀 Publicar Update</div>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-sql">
+                            <div class="nav-link text-warning" data-bs-toggle="modal" data-bs-target="#sqlModal">🛠️ Painel SQL</div>
                         </li>
                         <li class="nav-item d-none" id="menu-dev-monitor">
                             <a class="nav-link text-white bg-danger rounded mt-2" href="/monitor">📟 Monitor Server</a>
@@ -407,7 +434,7 @@
                                 data-bs-target="#consultaCadastroModal">Consultar Cadastros</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">Relatórios</a>
+                            <a class="nav-link" href="/api/relatorio/evolucao" target="_blank">📊 Relatório de Evolução</a>
                         </li>
                         <li class="nav-item d-none" id="menu-historico-mobile">
                             <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#historicoModal">📜
@@ -427,6 +454,9 @@
                         <li class="nav-item d-none" id="menu-dev-update-mobile">
                             <div class="nav-link text-success" data-bs-toggle="modal"
                                 data-bs-target="#publishUpdateModal">🚀 Update</div>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-sql-mobile">
+                            <div class="nav-link text-warning" data-bs-toggle="modal" data-bs-target="#sqlModal">🛠️ Painel SQL</div>
                         </li>
                         <li class="nav-item d-none" id="menu-dev-monitor-mobile">
                             <a class="nav-link text-danger fw-bold" href="/monitor">📟 Monitor Server</a>
@@ -677,6 +707,42 @@
         window.addEventListener('online', atualizarStatusRede);
         window.addEventListener('offline', atualizarStatusRede);
 
+        // --- NOVO: Widget de Rede Detalhado (Esquerda) ---
+        function updateDetailedNetwork() {
+            const iconEl = document.getElementById('net-icon-left');
+            const textEl = document.getElementById('net-text-left');
+
+            if (!navigator.onLine) {
+                iconEl.textContent = '❌';
+                textEl.textContent = 'Offline';
+                textEl.style.color = '#ff4444';
+                return;
+            }
+
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            let speed = '';
+            let type = 'Conectado';
+            let icon = '🌐';
+
+            if (conn) {
+                if (conn.downlink) speed = ` ${conn.downlink} Mbps`;
+                if (conn.type === 'wifi') { icon = '📶'; type = 'WiFi'; }
+                else if (conn.type === 'ethernet') { icon = '🔌'; type = 'Cabo'; }
+                else if (conn.effectiveType) { icon = '📶'; type = conn.effectiveType.toUpperCase(); }
+            }
+
+            iconEl.textContent = icon;
+            textEl.textContent = `${type}${speed}`;
+            textEl.style.color = '#00cc44';
+        }
+
+        updateDetailedNetwork();
+        if (navigator.connection) {
+            navigator.connection.addEventListener('change', updateDetailedNetwork);
+        }
+        window.addEventListener('online', updateDetailedNetwork);
+        window.addEventListener('offline', updateDetailedNetwork);
+
         // Verificação mais confiável (ping simples a cada 10s)
         setInterval(() => {
             fetch('https://www.google.com/favicon.ico', { mode: 'no-cors', cache: 'no-store' })
@@ -883,11 +949,11 @@
                     }
                     // Se for DEV, mostra menu de edição de layout
                     if (data.role === 'dev') {
-                        ['menu-dev', 'menu-dev-protocolos', 'menu-dev-update', 'menu-dev-monitor'].forEach(id => document.getElementById(id).classList.remove('d-none'));
-                        ['menu-dev-mobile', 'menu-dev-protocolos-mobile', 'menu-dev-update-mobile', 'menu-dev-monitor-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
+                        ['menu-dev', 'menu-dev-protocolos', 'menu-dev-update', 'menu-dev-monitor', 'menu-dev-sql'].forEach(id => document.getElementById(id).classList.remove('d-none'));
+                        ['menu-dev-mobile', 'menu-dev-protocolos-mobile', 'menu-dev-update-mobile', 'menu-dev-monitor-mobile', 'menu-dev-sql-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
                     } else if (data.role === 'admin') {
                         // Admin também pode ver protocolos
-                        ['menu-dev-protocolos', 'menu-dev-protocolos-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
+                        ['menu-dev-protocolos', 'menu-dev-protocolos-mobile', 'menu-dev-sql', 'menu-dev-sql-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
                         // Admin também pode ver monitor
                         ['menu-dev-monitor', 'menu-dev-monitor-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
                         // Também mostra o modal SQL se quiser (opcional, ou cria outro botão)
@@ -2327,7 +2393,7 @@
         </div>
 
         <div class="container-fluid d-flex justify-content-between px-3">
-            <span class="footer-text">Desenvolvido por: CisNet Tech</span>
+            <span class="footer-text">&copy; <span id="ano-copyright"></span> AutoGate | Desenvolvido por: CisNet Tech</span>
             <div class="d-flex align-items-center gap-3">
                 <span class="footer-text">Versão <span id="client-version-display">1.1.0</span></span>
             </div>
@@ -2344,6 +2410,9 @@
     </script>
 
     <script>
+        // Atualiza o ano do Copyright automaticamente
+        document.getElementById('ano-copyright').textContent = new Date().getFullYear();
+
         // --- Scripts do Chat (Lógica com Protocolos) ---
         function toggleChat() {
             const widget = document.getElementById('chat-widget');
