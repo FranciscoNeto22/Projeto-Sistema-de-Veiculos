@@ -337,38 +337,56 @@
                 if (!res.ok) throw new Error("Erro na API"); // Evita erro silencioso
                 const data = await res.json();
 
-                // Prepara arrays preenchidos com null para manter a escala de tempo fixa
+                // --- MELHORADO: Agrega os dados para calcular a média por intervalo ---
                 const totalSlots = 144; // 24h * 6 slots/hora (10min)
-                const pingRailwayData = new Array(totalSlots).fill(null);
-                const cpuData = new Array(totalSlots).fill(null);
+                const aggregatedData = Array.from({ length: totalSlots }, () => ({
+                    ping: { sum: 0, count: 0 },
+                    cpu: { sum: 0, count: 0 }
+                }));
 
-                // Mapeia os dados recebidos para o minuto correto do dia
                 data.forEach(d => {
                     // Converte a string ISO (com fuso) para o objeto Date do navegador (horário local)
                     let dateObj = new Date(d.data_hora);
-
-                    // Fallback para formato antigo (sem T) se existir no banco
-                    if (isNaN(dateObj.getTime())) {
-                        // CORREÇÃO DE FUSO: Tenta interpretar como UTC (adicionando Z) para corrigir dados "no futuro"
-                        dateObj = new Date(d.data_hora.replace(' ', 'T') + 'Z');
-                        if (isNaN(dateObj.getTime())) {
-                            dateObj = new Date(d.data_hora.replace(' ', 'T'));
-                        }
-                    }
+                    if (isNaN(dateObj.getTime())) return; // Pula dados com data inválida
 
                     const hora = dateObj.getHours();
                     const min = dateObj.getMinutes();
                     const index = (hora * 6) + Math.floor(min / 10); // Calcula índice para blocos de 10 min
 
                     if (index >= 0 && index < totalSlots) {
-                        pingRailwayData[index] = d.ping_railway;
-                        cpuData[index] = d.cpu_usage;
+                        // Adiciona os valores para calcular a média depois
+                        if (d.ping_railway !== null && d.ping_railway > 0) { // Ignora pings 0 (offline) na média
+                            aggregatedData[index].ping.sum += d.ping_railway;
+                            aggregatedData[index].ping.count++;
+                        }
+                        if (d.cpu_usage !== null) {
+                            aggregatedData[index].cpu.sum += d.cpu_usage;
+                            aggregatedData[index].cpu.count++;
+                        }
                     }
                 });
 
+                // Prepara os arrays finais com as médias calculadas ou null se não houver dados
+                const pingRailwayData = aggregatedData.map(slot =>
+                    slot.ping.count > 0 ? Math.round(slot.ping.sum / slot.ping.count) : null
+                );
+                const cpuData = aggregatedData.map(slot =>
+                    slot.cpu.count > 0 ? Math.round(slot.cpu.sum / slot.cpu.count) : null
+                );
+
                 const ctx = document.getElementById('historyChart').getContext('2d');
 
-                if (historyChartInstance) historyChartInstance.destroy();
+                if (historyChartInstance) historyChartInstance.destroy(); // Destroi o gráfico antigo para recriar
+
+                // --- NOVO: Criar gradientes para o fundo (estilo Grafana) ---
+                const chartHeight = 160; // Altura do container do gráfico
+                const pingGradient = ctx.createLinearGradient(0, 0, 0, chartHeight);
+                pingGradient.addColorStop(0, 'rgba(0, 255, 0, 0.5)');
+                pingGradient.addColorStop(1, 'rgba(0, 255, 0, 0)');
+
+                const cpuGradient = ctx.createLinearGradient(0, 0, 0, chartHeight);
+                cpuGradient.addColorStop(0, 'rgba(255, 193, 7, 0.5)');
+                cpuGradient.addColorStop(1, 'rgba(255, 193, 7, 0)');
 
                 historyChartInstance = new Chart(ctx, {
                     type: 'line',
@@ -379,25 +397,33 @@
                                 label: 'Ping Nuvem (ms)',
                                 data: pingRailwayData,
                                 borderColor: '#00ff00',
-                                backgroundColor: 'rgba(0, 255, 0, 0.4)', /* Mais opaco (Estilo Montanha) */
+                                backgroundColor: pingGradient,
                                 borderWidth: 2,
-                                pointRadius: 3, /* Ponto visível na ponta */
+                                pointRadius: 0, // Oculta os pontos fixos
+                                pointHoverRadius: 5, // Mostra ponto no hover
+                                pointHitRadius: 10, // Aumenta área de hover
                                 pointBackgroundColor: '#00ff00',
                                 pointBorderColor: '#fff',
-                                tension: 0.3,
-                                fill: true
+                                tension: 0.4, // Curva suave (Spline)
+                                cubicInterpolationMode: 'monotone', // Garante o efeito de onda suave
+                                fill: true,
+                                spanGaps: true // NOVO: Conecta pontos mesmo com dados faltando
                             },
                             {
                                 label: 'CPU (%)',
                                 data: cpuData,
                                 borderColor: '#ffc107',
-                                backgroundColor: 'rgba(255, 193, 7, 0.4)', /* Mais opaco (Estilo Montanha) */
-                                borderWidth: 1,
-                                pointRadius: 3, /* Ponto visível na ponta */
+                                backgroundColor: cpuGradient,
+                                borderWidth: 2, // Linha mais grossa para consistência
+                                pointRadius: 0, // Oculta os pontos fixos
+                                pointHoverRadius: 5, // Mostra ponto no hover
+                                pointHitRadius: 10, // Aumenta área de hover
                                 pointBackgroundColor: '#ffc107',
                                 pointBorderColor: '#fff',
-                                tension: 0.3,
-                                fill: true
+                                tension: 0.4, // Curva suave (Spline)
+                                cubicInterpolationMode: 'monotone', // Garante o efeito de onda suave
+                                fill: true,
+                                spanGaps: true // NOVO: Conecta pontos mesmo com dados faltando
                             }
                         ]
                     },
@@ -410,8 +436,20 @@
                             tooltip: { mode: 'index', intersect: false }
                         },
                         scales: {
-                            x: { ticks: { color: '#888', maxTicksLimit: 144, autoSkip: true, maxRotation: 0 }, grid: { color: '#333' } },
-                            y: { beginAtZero: true, ticks: { color: '#888' }, grid: { color: '#333' } }
+                            x: {
+                                ticks: { color: '#888', maxTicksLimit: 144, autoSkip: true, maxRotation: 0 },
+                                grid: {
+                                    display: false // Remove as linhas verticais para um visual mais limpo
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: '#888' },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)', // Linhas horizontais mais claras e suaves
+                                    drawBorder: false // Remove a linha de borda do eixo Y
+                                }
+                            }
                         }
                     }
                 });

@@ -1,6 +1,7 @@
 # app.py
 from datetime import datetime
 import os
+import asyncio
 import uvicorn
 import subprocess
 import shutil
@@ -97,6 +98,34 @@ class AppVersionModel(BaseModel):
     changelog: str
 
 
+async def log_performance_periodically():
+    """Tarefa de fundo que salva a performance do servidor a cada minuto, 24/7."""
+    while True:
+        await asyncio.sleep(60)  # Espera 1 minuto
+        try:
+            health = get_system_health()
+            ping_railway = 0
+            try:
+                start_time = time.time()
+                # Tenta conectar em um endpoint leve para medir latência
+                urllib.request.urlopen(
+                    "https://projeto-sistema-de-veiculos-production.up.railway.app/app-version", timeout=5)
+                ping_railway = int((time.time() - start_time) * 1000)
+            except Exception:
+                ping_railway = 0  # Marca como 0 se falhar
+
+            salvar_historico_performance(
+                health.get("cpu_usage", 0),
+                health.get("ram_usage", 0),
+                health.get("disk_usage", 0),
+                1,  # Ping local (irrelevante no servidor)
+                ping_railway
+            )
+        except Exception as e:
+            # Imprime o erro no console do servidor para debug, mas não para a tarefa
+            print(f"ERRO NA TAREFA DE HISTÓRICO: {e}")
+
+
 app = FastAPI(title="API Controle de Veículos")
 
 if not os.path.exists("static"):
@@ -122,6 +151,8 @@ def on_startup():
     global START_TIME
     START_TIME = datetime.now()
     setup_usuarios()
+    # Inicia a tarefa de fundo para coletar dados de performance continuamente
+    asyncio.create_task(log_performance_periodically())
 
 
 # Adicionar o middleware de sessão
@@ -689,8 +720,7 @@ def scanner_interface(request: Request):
 
 
 # Variável global para controlar a frequência de salvamento no banco (evitar spam)
-LAST_DB_SAVE = 0
-# Variáveis para cálculo de velocidade de rede
+# LAST_DB_SAVE = 0 # REMOVIDO: A tarefa de fundo agora controla isso.
 LAST_NET_IO = None
 LAST_NET_TIME = None
 
@@ -713,7 +743,7 @@ def api_clear_monitor_history(user: str = Depends(get_logged_user)):
 
 @app.get("/api/server-status")
 def api_server_status(user: str = Depends(get_logged_user)):
-    global LAST_DB_SAVE, LAST_NET_IO, LAST_NET_TIME
+    global LAST_NET_IO, LAST_NET_TIME
     # Calcula tempo de atividade (Uptime)
     now = datetime.now()
     uptime = now - START_TIME
@@ -727,7 +757,7 @@ def api_server_status(user: str = Depends(get_logged_user)):
         start = time.time()
         # Tenta conectar na raiz ou em um endpoint leve
         urllib.request.urlopen(
-            "https://projeto-sistema-de-veiculos-production.up.railway.app/favicon.ico", timeout=2)
+            "https://projeto-sistema-de-veiculos-production.up.railway.app/app-version", timeout=2)
         ping_railway = int((time.time() - start) * 1000)
     except:
         ping_railway = 0  # Offline ou timeout
@@ -765,18 +795,8 @@ def api_server_status(user: str = Depends(get_logged_user)):
     except:
         pass
 
-    # Salvar no histórico a cada 60 segundos
-    if time.time() - LAST_DB_SAVE > 60:
-        salvar_historico_performance(
-            health.get("cpu_usage", 0),
-            health.get("ram_usage", 0),
-            health.get("disk_usage", 0),
-            # Ping local é irrelevante aqui (sempre <1ms), salvamos 1 para constar
-            1,
-            ping_railway
-        )
-        LAST_DB_SAVE = time.time()
-
+    # O bloco de salvamento de histórico foi removido daqui e movido para a tarefa
+    # em segundo plano (log_performance_periodically) para garantir coleta contínua.
     return {
         "uptime": str(uptime).split('.')[0],  # Remove milissegundos
         "db_size": f"{health['db_size_mb']} MB",
