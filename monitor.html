@@ -82,11 +82,12 @@
 
 <body class="p-3">
 
-    <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="d-flex justify-content-between align-items-center mb-4 position-relative">
         <h5 class="m-0">📟 SERVER MONITOR</h5>
+        <div id="data-hora-monitor" class="text-muted"
+            style="font-family: monospace; font-size: 1.0rem; position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap;">
+        </div>
         <a href="/app" class="btn btn-sm btn-outline-secondary">Voltar</a>
-    </div>
-    <div id="data-hora-monitor" class="text-white text-center mb-4" style="font-family: monospace; font-size: 1.0rem;">
     </div>
 
     <!-- LINHA 1: STATS RÁPIDOS (Estilo "Big Number") -->
@@ -121,7 +122,7 @@
         <div class="col-6 col-md-3">
             <div class="card p-3 text-center h-100">
                 <div class="stat-label">Uptime</div>
-                <div id="uptime-val" class="stat-value text-info" style="font-size: 1.0rem;">--:--:--</div>
+                <div id="uptime-val" class="stat-value text-info">--:--:--</div>
             </div>
         </div>
     </div>
