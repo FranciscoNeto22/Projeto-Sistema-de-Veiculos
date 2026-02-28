@@ -365,7 +365,8 @@
                                 data-bs-target="#consultaCadastroModal">Consultar Cadastros</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/api/relatorio/evolucao" target="_blank">📊 Relatório de Evolução</a>
+                            <a class="nav-link" href="/api/relatorio/evolucao" target="_blank">📊 Relatório de
+                                Evolução</a>
                         </li>
                         <li class="nav-item d-none" id="menu-historico">
                             <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#historicoModal">📜
@@ -388,14 +389,19 @@
                                 🚀 Publicar Update</div>
                         </li>
                         <li class="nav-item d-none" id="menu-dev-sql">
-                            <div class="nav-link text-warning" data-bs-toggle="modal" data-bs-target="#sqlModal">🛠️ Painel SQL</div>
+                            <div class="nav-link text-warning" data-bs-toggle="modal" data-bs-target="#sqlModal">🛠️
+                                Painel SQL</div>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-reset-visual">
+                            <div class="nav-link text-danger" style="cursor: pointer;" onclick="resetarConfigVisual()">
+                                🧹 Reset Visual</div>
                         </li>
                         <li class="nav-item d-none" id="menu-dev-monitor">
                             <a class="nav-link text-white bg-danger rounded mt-2" href="/monitor">📟 Monitor Server</a>
                         </li>
                         <li class="nav-item mt-4">
-                            <a class="nav-link text-danger" href="/logout"
-                                onclick="return confirm('Tem certeza que deseja sair do sistema?');">Sair</a>
+                            <a class="nav-link text-danger" href="#"
+                                onclick="event.preventDefault(); showCustomConfirm('Tem certeza que deseja sair do sistema?', (ok) => { if(ok) window.location.href='/logout'; });">Sair</a>
                         </li>
                     </ul>
                 </div>
@@ -434,7 +440,8 @@
                                 data-bs-target="#consultaCadastroModal">Consultar Cadastros</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/api/relatorio/evolucao" target="_blank">📊 Relatório de Evolução</a>
+                            <a class="nav-link" href="/api/relatorio/evolucao" target="_blank">📊 Relatório de
+                                Evolução</a>
                         </li>
                         <li class="nav-item d-none" id="menu-historico-mobile">
                             <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#historicoModal">📜
@@ -456,14 +463,19 @@
                                 data-bs-target="#publishUpdateModal">🚀 Update</div>
                         </li>
                         <li class="nav-item d-none" id="menu-dev-sql-mobile">
-                            <div class="nav-link text-warning" data-bs-toggle="modal" data-bs-target="#sqlModal">🛠️ Painel SQL</div>
+                            <div class="nav-link text-warning" data-bs-toggle="modal" data-bs-target="#sqlModal">🛠️
+                                Painel SQL</div>
+                        </li>
+                        <li class="nav-item d-none" id="menu-dev-reset-visual-mobile">
+                            <div class="nav-link text-danger" style="cursor: pointer;" onclick="resetarConfigVisual()">
+                                🧹 Reset Visual</div>
                         </li>
                         <li class="nav-item d-none" id="menu-dev-monitor-mobile">
                             <a class="nav-link text-danger fw-bold" href="/monitor">📟 Monitor Server</a>
                         </li>
                         <li class="nav-item mt-4">
-                            <a class="nav-link text-danger" href="/logout"
-                                onclick="return confirm('Tem certeza que deseja sair do sistema?');">Sair</a>
+                            <a class="nav-link text-danger" href="#"
+                                onclick="event.preventDefault(); showCustomConfirm('Tem certeza que deseja sair do sistema?', (ok) => { if(ok) window.location.href='/logout'; });">Sair</a>
                         </li>
                     </ul>
                     <div class="mt-auto text-center">
@@ -482,7 +494,7 @@
                         <div class="card text-bg-success">
                             <div class="card-body">
                                 <h6>No Pátio</h6>
-                                <h4>12</h4>
+                                <h4 id="card-no-patio">...</h4>
                             </div>
                         </div>
                     </div>
@@ -491,7 +503,7 @@
                         <div class="card text-bg-danger">
                             <div class="card-body">
                                 <h6>Saíram Hoje</h6>
-                                <h4>5</h4>
+                                <h4 id="card-sairam-hoje">...</h4>
                             </div>
                         </div>
                     </div>
@@ -500,7 +512,7 @@
                         <div class="card text-bg-warning">
                             <div class="card-body">
                                 <h6>Pendentes</h6>
-                                <h4>2</h4>
+                                <h4 id="card-pendentes">...</h4>
                             </div>
                         </div>
                     </div>
@@ -509,7 +521,7 @@
                         <div class="card text-bg-info">
                             <div class="card-body">
                                 <h6>Visitantes</h6>
-                                <h4>3</h4>
+                                <h4 id="card-visitantes">...</h4>
                             </div>
                         </div>
                     </div>
@@ -689,6 +701,111 @@
         let currentUser = { username: null, role: null };
         let currentChatProtocolId = null;
 
+        // --- NOVO: Sistema de Alertas e Confirmações Customizadas (Corrigido) ---
+        function getAlertModal() {
+            // Padrão de inicialização preguiçosa (lazy initialization) para garantir que o DOM esteja carregado.
+            // A instância é armazenada em 'window' para ser reutilizada (memoization).
+            if (window.customAlertInstance) {
+                return window.customAlertInstance;
+            }
+            const el = document.getElementById('customAlertModal');
+            if (!el) {
+                console.error("O elemento HTML do modal de alerta ('customAlertModal') não foi encontrado. Os alertas customizados não funcionarão.");
+                return null;
+            }
+
+            window.customAlertInstance = {
+                modal: new bootstrap.Modal(el),
+                el: el,
+                title: document.getElementById('customAlertTitle'),
+                body: document.getElementById('customAlertBody'),
+                header: document.getElementById('customAlertHeader'),
+                okBtn: document.getElementById('customAlertOkBtn'),
+                cancelBtn: document.getElementById('customAlertCancelBtn')
+            };
+            return window.customAlertInstance;
+        }
+
+        function showCustomAlert(message, type = 'info') {
+            const alertElements = getAlertModal();
+            if (!alertElements) {
+                // Fallback para o alerta padrão do navegador se o modal customizado falhar
+                alert(message.replace(/<[^>]*>/g, ''));
+                return;
+            }
+
+            const types = {
+                success: { class: 'bg-success', title: 'Sucesso' },
+                error: { class: 'bg-danger', title: 'Erro' },
+                warning: { class: 'bg-warning text-dark', title: 'Atenção' },
+                info: { class: 'bg-primary', title: 'Aviso' }
+            };
+            const config = types[type] || types.info;
+
+            alertElements.header.className = `modal-header text-white ${config.class}`;
+            alertElements.title.textContent = config.title;
+            alertElements.body.innerHTML = message;
+
+            alertElements.cancelBtn.style.display = 'none';
+            alertElements.okBtn.style.display = 'inline-block';
+            alertElements.okBtn.textContent = 'OK';
+            alertElements.okBtn.onclick = () => alertElements.modal.hide();
+
+            alertElements.modal.show();
+        }
+
+        function showCustomConfirm(message, callback) {
+            const alertElements = getAlertModal();
+            if (!alertElements) {
+                // Fallback para o confirm padrão do navegador
+                if (confirm(message.replace(/<[^>]*>/g, ''))) {
+                    if (callback) callback(true);
+                } else {
+                    if (callback) callback(false);
+                }
+                return;
+            }
+
+            alertElements.header.className = 'modal-header text-white bg-dark';
+            alertElements.title.textContent = 'Confirmação';
+            alertElements.body.innerHTML = message;
+
+            alertElements.cancelBtn.style.display = 'inline-block';
+            alertElements.okBtn.style.display = 'inline-block';
+            alertElements.okBtn.textContent = 'Confirmar';
+            alertElements.cancelBtn.textContent = 'Cancelar';
+
+            let wasActionTaken = false;
+
+            const okListener = () => {
+                wasActionTaken = true;
+                alertElements.modal.hide();
+                if (callback) callback(true);
+            };
+
+            const cancelListener = () => {
+                wasActionTaken = true;
+                alertElements.modal.hide();
+                if (callback) callback(false);
+            };
+
+            alertElements.okBtn.onclick = okListener;
+            alertElements.cancelBtn.onclick = cancelListener;
+
+            const hideListener = () => {
+                if (!wasActionTaken && callback) {
+                    callback(false);
+                }
+                alertElements.el.removeEventListener('hidden.bs.modal', hideListener, { once: true });
+            };
+
+            alertElements.el.addEventListener('hidden.bs.modal', hideListener, { once: true });
+
+            alertElements.modal.show();
+        }
+
+        // --- Fim do Sistema de Alertas ---
+
         // 1. Status da Rede (verde = online, vermelho = offline)
         const statusRede = document.getElementById('status-rede');
         const bolinha = document.getElementById('bolinha-status');
@@ -775,8 +892,7 @@
         }
 
         function filtrarPorData(data) {
-            // Aqui você pode implementar a lógica de filtro
-            alert("Data selecionada: " + data + "\n(Implemente a lógica de filtro aqui se desejar)");
+            showCustomAlert("Data selecionada: " + data + "<br>(A lógica de filtro para esta função ainda não foi implementada.)", 'info');
         }
 
         // --- Widget de Clima (Open-Meteo API) ---
@@ -852,42 +968,55 @@
                     tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum veículo no estacionamento</td></tr>';
                 } else {
                     veiculos.forEach(veiculo => {
-                        // Calcula o tempo inicial para evitar o "pisca" (--:--:--)
-                        const timerData = obterDadosCronometro(veiculo.entrada);
+                        try { // Adicionado para evitar que um registro quebre a renderização de toda a tabela
+                            // Calcula o tempo inicial para evitar o "pisca" (--:--:--)
+                            const timerData = obterDadosCronometro(veiculo.entrada);
 
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${veiculo.placa || '-'}</td>
-                            <td>${veiculo.responsavel || '-'}</td>
-                            <td>${veiculo.entrada || '-'} <span class="${timerData.cssClass}" data-entry-time="${veiculo.entrada}">${timerData.text}</span></td>
-                            <td><span class="badge bg-success">No Pátio</span></td>
-                            <td>Principal</td>
-                            <td>
-                                <button class="btn btn-sm btn-danger" onclick="registrarSaida('${veiculo.placa}')">Dar Saída</button>
-                            </td>
-                        `;
-                        tbody.appendChild(row);
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${veiculo.placa || '-'}</td>
+                                <td>${veiculo.responsavel || '-'}</td>
+                                <td>${veiculo.entrada || '-'} <span class="${timerData.cssClass}" data-entry-time="${veiculo.entrada}">${timerData.text}</span></td>
+                                <td><span class="badge bg-success">No Pátio</span></td>
+                                <td>Principal</td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" onclick="registrarSaida('${veiculo.placa}')">Dar Saída</button>
+                                </td>
+                            `;
+                            tbody.appendChild(row);
+                        } catch (e) {
+                            console.error('Erro ao processar veículo:', veiculo, e);
+                            // Opcional: renderiza uma linha de erro para o veículo específico
+                            const row = document.createElement('tr');
+                            row.innerHTML = `<td colspan="6" class="text-center text-danger">Erro ao carregar dados do veículo ${veiculo.placa || ''}</td>`;
+                            tbody.appendChild(row);
+                        }
                     });
                 }
 
                 // Atualizar card "No Pátio"
-                const cardPatio = document.querySelector('.card.text-bg-success h4');
-                const cardSairam = document.querySelector('.card.text-bg-danger h4');
-                const cardPendentes = document.querySelector('.card.text-bg-warning h4');
-                const cardVisitantes = document.querySelector('.card.text-bg-info h4');
+                const cardPatio = document.getElementById('card-no-patio');
+                const cardSairam = document.getElementById('card-sairam-hoje');
+                const cardPendentes = document.getElementById('card-pendentes');
+                const cardVisitantes = document.getElementById('card-visitantes');
 
                 if (cardPatio) {
                     cardPatio.textContent = Array.isArray(veiculos) ? veiculos.length : 0;
                     // Buscar estatísticas adicionais
                     try {
                         fetch('/estatisticas')
-                            .then(r => r.ok ? r.json() : Promise.reject(r))
+                            .then(r => r.ok ? r.json() : Promise.reject({ status: r.status }))
                             .then(stats => {
                                 if (cardSairam) cardSairam.textContent = stats.sairam_hoje ?? '0';
                                 if (cardPendentes) cardPendentes.textContent = stats.pendentes ?? '0';
                                 if (cardVisitantes) cardVisitantes.textContent = stats.visitantes ?? '0';
                             })
-                            .catch(err => console.error('Erro ao obter estatísticas:', err));
+                            .catch(err => {
+                                console.error('Erro ao obter estatísticas:', err);
+                                if (cardSairam) cardSairam.textContent = 'X';
+                                if (cardPendentes) cardPendentes.textContent = 'X';
+                                if (cardVisitantes) cardVisitantes.textContent = 'X';
+                            });
                     } catch (e) {
                         console.error('Erro fetch estatisticas:', e);
                     }
@@ -912,14 +1041,14 @@
                 console.log('Resultado saída:', resultado);
 
                 if (resultado.status) {
-                    alert(`Saída registrada para ${placa}`);
+                    showCustomAlert(`Saída registrada para a placa <strong>${placa}</strong>.`, 'success');
                     carregarVeiculos(); // Recarregar tabela
                 } else {
-                    alert(`Erro: ${resultado.erro}`);
+                    showCustomAlert(resultado.erro, 'error');
                 }
             } catch (error) {
                 console.error('Erro ao registrar saída:', error);
-                alert('Erro ao registrar saída');
+                showCustomAlert('Ocorreu um erro de conexão ao tentar registrar a saída.', 'error');
             }
         }
 
@@ -949,8 +1078,8 @@
                     }
                     // Se for DEV, mostra menu de edição de layout
                     if (data.role === 'dev') {
-                        ['menu-dev', 'menu-dev-protocolos', 'menu-dev-update', 'menu-dev-monitor', 'menu-dev-sql'].forEach(id => document.getElementById(id).classList.remove('d-none'));
-                        ['menu-dev-mobile', 'menu-dev-protocolos-mobile', 'menu-dev-update-mobile', 'menu-dev-monitor-mobile', 'menu-dev-sql-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
+                        ['menu-dev', 'menu-dev-protocolos', 'menu-dev-update', 'menu-dev-monitor', 'menu-dev-sql', 'menu-dev-reset-visual'].forEach(id => document.getElementById(id)?.classList.remove('d-none'));
+                        ['menu-dev-mobile', 'menu-dev-protocolos-mobile', 'menu-dev-update-mobile', 'menu-dev-monitor-mobile', 'menu-dev-sql-mobile', 'menu-dev-reset-visual-mobile'].forEach(id => document.getElementById(id)?.classList.remove('d-none'));
                     } else if (data.role === 'admin') {
                         // Admin também pode ver protocolos
                         ['menu-dev-protocolos', 'menu-dev-protocolos-mobile', 'menu-dev-sql', 'menu-dev-sql-mobile'].forEach(id => document.getElementById(id).classList.remove('d-none'));
@@ -979,8 +1108,18 @@
             // Converte o formato "dd-mm-yyyy HH:MM:SS" para um objeto Date do JavaScript
             if (!dateString) return null;
             const parts = dateString.split(' ');
+            // Adicionado: Verificação para garantir que a data e a hora existam
+            if (parts.length < 2) {
+                console.error("Formato de data inválido (sem hora):", dateString);
+                return null;
+            }
             const dateParts = parts[0].split('-');
             const timeParts = parts[1].split(':');
+            // Adicionado: Verificação para garantir que as partes da data/hora estão corretas
+            if (dateParts.length < 3 || timeParts.length < 3) {
+                console.error("Formato de data/hora inválido (partes faltando):", dateString);
+                return null;
+            }
             // new Date(ano, mês-1, dia, hora, minuto, segundo)
             return new Date(dateParts[2], dateParts[1] - 1, dateParts[0], timeParts[0], timeParts[1], timeParts[2]);
         }
@@ -1250,24 +1389,24 @@
             const placa = document.getElementById('novaEntradaPlaca').value;
             const tipo = document.getElementById('novaEntradaTipo').value;
 
-            if (!placa) return alert("Digite a placa.");
+            if (!placa) return showCustomAlert("O campo <strong>Placa</strong> é obrigatório.", 'warning');
 
             try {
                 const res = await fetch(`/entrada?placa=${placa}&tipo=${tipo}`, { method: 'POST' });
                 const data = await res.json();
 
                 if (data.status) {
-                    alert("Entrada registrada: " + placa);
+                    showCustomAlert(`Entrada registrada para o veículo de placa <strong>${placa}</strong>.`, 'success');
                     document.getElementById('novaEntradaPlaca').value = '';
                     // Fecha modal e recarrega lista
                     const modal = bootstrap.Modal.getInstance(document.getElementById('novaEntradaModal'));
                     modal.hide();
                     carregarVeiculos();
                 } else {
-                    alert("Erro: " + data.erro);
+                    showCustomAlert(data.erro, 'error');
                 }
             } catch (e) {
-                alert("Erro de conexão.");
+                showCustomAlert("Ocorreu um erro de conexão com o servidor.", 'error');
             }
         }
     </script>
@@ -1483,15 +1622,15 @@
                     const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
                     const data = await res.json();
                     if (!data.erro) {
-                        document.getElementById('cadEndereco').value = `${data.logradouro}, ${data.bairro}, ${data.localidade}`;
+                        document.getElementById('cadEndereco').value = `${data.logradouro}, ${data.bairro}, ${data.localidade}`.toUpperCase();
                         // document.getElementById('cadEstado').value = data.uf; // Campo removido
                     } else {
-                        alert('CEP não encontrado.');
+                        showCustomAlert('CEP não encontrado na base de dados.', 'warning');
                         document.getElementById('cadEndereco').value = '';
                     }
                 } catch (e) {
                     console.error(e);
-                    alert('Erro ao buscar CEP.');
+                    showCustomAlert('Ocorreu um erro ao consultar o serviço de CEP.', 'error');
                 }
             }
         }
@@ -1536,7 +1675,7 @@
                 }
 
                 const json = await res.json();
-                alert(json.status || json.erro || 'Operação concluída.');
+                showCustomAlert(json.status || json.erro || 'Operação concluída.', res.ok ? 'success' : 'error');
 
                 if (res.ok) {
                     limparCadastro();
@@ -1548,7 +1687,7 @@
                     }
                 }
             } catch (e) {
-                alert('Erro na conexão com a API');
+                showCustomAlert('Erro na conexão com a API ao tentar salvar o cadastro.', 'error');
                 console.error(e);
             }
         }
@@ -1644,19 +1783,21 @@
 
         async function excluirCadastro(id, event) {
             event.stopPropagation(); // Impede que o modal feche ou outros eventos sejam disparados
-            if (confirm('Tem certeza que deseja excluir este cadastro?')) {
-                try {
-                    const res = await fetch(`/cadastro/${id}`, { method: 'DELETE' });
-                    const json = await res.json();
-                    alert(json.status || json.erro);
-                    if (res.ok) {
-                        carregarCadastros(buscaInput.value); // Recarrega a lista
+            showCustomConfirm('Tem certeza que deseja excluir este cadastro? A ação não pode ser desfeita.', async (confirmed) => {
+                if (confirmed) {
+                    try {
+                        const res = await fetch(`/cadastro/${id}`, { method: 'DELETE' });
+                        const json = await res.json();
+                        showCustomAlert(json.status || json.erro, res.ok ? 'success' : 'error');
+                        if (res.ok) {
+                            carregarCadastros(buscaInput.value); // Recarrega a lista
+                        }
+                    } catch (e) {
+                        showCustomAlert('Erro de conexão ao tentar excluir o cadastro.', 'error');
+                        console.error(e);
                     }
-                } catch (e) {
-                    alert('Erro ao conectar com a API para excluir.');
-                    console.error(e);
                 }
-            }
+            });
         }
 
         async function editarCadastro(id, event) {
@@ -1703,7 +1844,7 @@
                 }
 
             } catch (e) {
-                alert('Erro ao carregar dados para edição.');
+                showCustomAlert('Não foi possível carregar os dados para edição.', 'error');
                 console.error(e);
             }
         }
@@ -1925,30 +2066,30 @@
             btn.disabled = true;
 
             try {
-                const res = await fetch('/api/arquivos/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+                const res = await fetch('/api/arquivos/upload', { method: 'POST', body: formData });
                 const data = await res.json();
 
                 if (data.status) {
+                    showCustomAlert(data.status, 'success');
                     input.value = ''; // Limpa input
                     carregarArquivosNuvem(); // Recarrega lista
                 } else {
-                    alert("Erro: " + data.erro);
+                    showCustomAlert(data.erro, 'error');
                 }
-            } catch (e) { alert("Erro no upload."); }
+            } catch (e) { showCustomAlert("Ocorreu um erro de conexão durante o upload.", 'error'); }
 
             btn.innerText = originalText;
             btn.disabled = false;
         }
 
         async function excluirArquivoNuvem(id) {
-            if (!confirm("Tem certeza que deseja excluir este arquivo permanentemente?")) return;
-            try {
-                const res = await fetch(`/api/arquivos/${id}`, { method: 'DELETE' });
-                carregarArquivosNuvem();
-            } catch (e) { alert("Erro ao excluir."); }
+            showCustomConfirm("Tem certeza que deseja excluir este arquivo permanentemente? A ação não pode ser desfeita.", async (confirmed) => {
+                if (!confirmed) return;
+                try {
+                    const res = await fetch(`/api/arquivos/${id}`, { method: 'DELETE' });
+                    carregarArquivosNuvem();
+                } catch (e) { showCustomAlert("Ocorreu um erro de conexão ao tentar excluir o arquivo.", 'error'); }
+            });
         }
     </script>
 
@@ -2038,7 +2179,7 @@
             const password = document.getElementById('novoPass').value;
             const role = document.getElementById('novoRole').value;
 
-            if (!username || !password) return alert('Preencha usuário e senha');
+            if (!username || !password) return showCustomAlert('Os campos <strong>Usuário</strong> e <strong>Senha</strong> são obrigatórios.', 'warning');
 
             const res = await fetch('/usuarios', {
                 method: 'POST',
@@ -2046,7 +2187,7 @@
                 body: JSON.stringify({ username, password, role })
             });
             const data = await res.json();
-            alert(data.status || data.erro);
+            showCustomAlert(data.status || data.erro, res.ok ? 'success' : 'error');
             if (res.ok) {
                 document.getElementById('novoUser').value = '';
                 document.getElementById('novoPass').value = '';
@@ -2086,7 +2227,7 @@
             const password = document.getElementById('novoPass').value;
             const role = document.getElementById('novoRole').value;
 
-            if (!username) return alert('O nome de usuário é obrigatório.');
+            if (!username) return showCustomAlert('O campo <strong>Usuário</strong> é obrigatório.', 'warning');
 
             const res = await fetch(`/usuarios/${id}`, {
                 method: 'PUT',
@@ -2094,7 +2235,7 @@
                 body: JSON.stringify({ username, password, role })
             });
             const data = await res.json();
-            alert(data.status || data.erro);
+            showCustomAlert(data.status || data.erro, res.ok ? 'success' : 'error');
 
             if (res.ok) {
                 cancelarEdicaoUsuario();
@@ -2103,20 +2244,24 @@
         }
 
         async function deletarUsuario(id) {
-            if (!confirm('Excluir este usuário?')) return;
-            const res = await fetch(`/usuarios/${id}`, { method: 'DELETE' });
-            const data = await res.json();
-            alert(data.status || data.erro);
-            carregarUsuarios();
+            showCustomConfirm('Tem certeza que deseja excluir este usuário?', async (confirmed) => {
+                if (!confirmed) return;
+                const res = await fetch(`/usuarios/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                showCustomAlert(data.status || data.erro, res.ok ? 'success' : 'error');
+                carregarUsuarios();
+            });
         }
 
         async function importarUsuariosExcel() {
-            if (!confirm("Isso irá ler o arquivo 'usuarios_backup.csv' e atualizar/criar os usuários no banco de dados. Deseja continuar?")) return;
+            showCustomConfirm("Isso irá ler o arquivo 'usuarios_backup.csv' e atualizar/criar os usuários no banco de dados. Deseja continuar?", async (confirmed) => {
+                if (!confirmed) return;
 
-            const res = await fetch('/usuarios/importar', { method: 'POST' });
-            const data = await res.json();
-            alert(data.status || data.erro);
-            carregarUsuarios();
+                const res = await fetch('/usuarios/importar', { method: 'POST' });
+                const data = await res.json();
+                showCustomAlert(data.status || data.erro, res.ok ? 'success' : 'error');
+                carregarUsuarios();
+            });
         }
     </script>
 
@@ -2185,13 +2330,13 @@
             visualMode = !visualMode;
             const body = document.body;
             if (visualMode) {
-                alert("MODO DE EDIÇÃO ATIVADO!\n\n1. Passe o mouse sobre os elementos.\n2. Clique com o botão DIREITO para editar.\n3. As alterações são salvas automaticamente.");
+                showCustomAlert("<strong>MODO DE EDIÇÃO ATIVADO!</strong><br><br>1. Passe o mouse sobre os elementos.<br>2. Clique com o botão <strong>DIREITO</strong> para editar.<br>3. As alterações são salvas automaticamente.", 'info');
                 document.addEventListener('mouseover', highlightElement);
                 document.addEventListener('mouseout', removeHighlight);
                 document.addEventListener('contextmenu', showContextMenu);
                 document.addEventListener('click', hideContextMenu);
             } else {
-                alert("Modo de edição desativado.");
+                showCustomAlert("Modo de edição visual desativado.", 'info');
                 document.removeEventListener('mouseover', highlightElement);
                 document.removeEventListener('mouseout', removeHighlight);
                 document.removeEventListener('contextmenu', showContextMenu);
@@ -2375,11 +2520,35 @@
                     body: JSON.stringify({ css: css })
                 });
                 if (res.ok) {
-                    alert('Atualização publicada! Todos os usuários verão o novo layout.');
+                    showCustomAlert('Atualização de layout publicada! Todos os usuários verão o novo design.', 'success');
                 } else {
-                    alert('Erro ao salvar (apenas DEV pode fazer isso).');
+                    showCustomAlert('Erro ao salvar. Apenas desenvolvedores podem alterar o layout.', 'error');
                 }
-            } catch (e) { alert('Erro de conexão'); }
+            } catch (e) { showCustomAlert('Erro de conexão ao salvar o layout.', 'error'); }
+        }
+
+        async function resetarConfigVisual() {
+            showCustomConfirm(
+                "Isso irá <strong>resetar TODAS as alterações de texto e cor</strong> feitas pelo modo de 'Edição Visual'.<br><br>Os textos originais (Dashboard, Saída, etc) serão restaurados.<br><br>Deseja continuar?",
+                async (confirmed) => {
+                    if (!confirmed) return;
+                    try {
+                        const res = await fetch('/dev/clear-visual-config', { method: 'POST' });
+                        const data = await res.json();
+
+                        if (res.ok) {
+                            showCustomAlert(data.status + "<br><br>A página será recarregada para aplicar as mudanças.", 'success');
+                            // Recarrega a página do zero, ignorando o cache
+                            setTimeout(() => location.reload(true), 2500);
+                        } else {
+                            showCustomAlert(data.detail || 'Ocorreu um erro ao resetar as configurações.', 'error');
+                        }
+                    } catch (e) {
+                        showCustomAlert('Erro de conexão com o servidor.', 'error');
+                        console.error(e);
+                    }
+                }
+            );
         }
     </script>
 
@@ -2393,7 +2562,8 @@
         </div>
 
         <div class="container-fluid d-flex justify-content-between px-3">
-            <span class="footer-text">&copy; <span id="ano-copyright"></span> AutoGate | Desenvolvido por: CisNet Tech</span>
+            <span class="footer-text">&copy; <span id="ano-copyright"></span> AutoGate | Desenvolvido por: CisNet
+                Tech</span>
             <div class="d-flex align-items-center gap-3">
                 <span class="footer-text">Versão <span id="client-version-display">1.1.0</span></span>
             </div>
@@ -2404,8 +2574,8 @@
 
         function copiarProtocolo(id) {
             navigator.clipboard.writeText(id).then(() => {
-                alert(`ID do protocolo #${id} copiado para a área de transferência!`);
-            }, () => { alert('Falha ao copiar o ID.'); });
+                showCustomAlert(`ID do protocolo <strong>#${id}</strong> copiado para a área de transferência!`, 'success');
+            }, () => { showCustomAlert('Falha ao copiar o ID do protocolo.', 'error'); });
         }
     </script>
 
@@ -2541,14 +2711,14 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ nota })
                 });
-                alert('Obrigado pela sua avaliação!');
+                showCustomAlert('Obrigado pela sua avaliação!', 'success');
                 // Recarrega para mostrar status fechado
                 if (currentUser.role === 'dev' || currentUser.role === 'admin') {
                     abrirChatProtocolo(currentChatProtocolId);
                 } else {
                     carregarMensagens();
                 }
-            } catch (e) { alert('Erro ao enviar avaliação'); }
+            } catch (e) { showCustomAlert('Ocorreu um erro ao registrar sua avaliação.', 'error'); }
         }
 
         function inserirMsgPadrao() {
@@ -2558,12 +2728,14 @@
         }
 
         async function solicitarEncerramento() {
-            if (!confirm("Deseja encerrar este atendimento e solicitar avaliação ao cliente?")) return;
-            try {
-                await fetch(`/chat/protocol/${currentChatProtocolId}/close`, { method: 'POST' });
-                // Recarrega
-                abrirChatProtocolo(currentChatProtocolId);
-            } catch (e) { alert('Erro ao encerrar'); }
+            showCustomConfirm("Deseja encerrar este atendimento e solicitar avaliação ao cliente?", async (confirmed) => {
+                if (!confirmed) return;
+                try {
+                    await fetch(`/chat/protocol/${currentChatProtocolId}/close`, { method: 'POST' });
+                    // Recarrega
+                    abrirChatProtocolo(currentChatProtocolId);
+                } catch (e) { showCustomAlert('Ocorreu um erro ao tentar encerrar o protocolo.', 'error'); }
+            });
         }
 
         // Para clientes, carrega o protocolo aberto atual
@@ -2648,7 +2820,7 @@
                 } else {
                     carregarMensagens();
                 }
-            } catch (e) { alert('Erro ao enviar: ' + e.message); }
+            } catch (e) { showCustomAlert('Erro ao enviar mensagem: ' + e.message, 'error'); }
         }
 
         function handleChatKey(e) {
@@ -2745,24 +2917,25 @@
             const checkboxes = document.querySelectorAll('.protocol-checkbox:checked');
             const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
 
-            if (ids.length === 0) return alert("Selecione pelo menos um protocolo.");
-            if (!confirm(`Tem certeza que deseja encerrar ${ids.length} protocolos sem avaliação?`)) return;
+            if (ids.length === 0) return showCustomAlert("Selecione pelo menos um protocolo para encerrar.", 'warning');
 
-            try {
-                const res = await fetch('/chat/protocols/bulk-close', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids: ids })
-                });
-                const data = await res.json();
-                alert(data.status);
+            showCustomConfirm(`Tem certeza que deseja encerrar ${ids.length} protocolos sem avaliação?`, async (confirmed) => {
+                if (!confirmed) return;
 
-                // Recarrega a lista fechando e abrindo o modal (simples refresh)
-                // Ou melhor, dispara o evento de show novamente
-                const modalEl = document.getElementById('protocolosModal');
-                const event = new Event('show.bs.modal');
-                modalEl.dispatchEvent(event);
-            } catch (e) { alert("Erro ao encerrar protocolos."); }
+                try {
+                    const res = await fetch('/chat/protocols/bulk-close', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids: ids })
+                    });
+                    const data = await res.json();
+                    showCustomAlert(data.status, 'success');
+
+                    const modalEl = document.getElementById('protocolosModal');
+                    const event = new Event('show.bs.modal');
+                    modalEl.dispatchEvent(event);
+                } catch (e) { showCustomAlert("Ocorreu um erro ao encerrar os protocolos selecionados.", 'error'); }
+            });
         }
 
         // --- Lógica de Notificação de Chat ---
@@ -2864,19 +3037,19 @@
                 const data = await res.json();
 
                 if (data.erro) {
-                    alert("Atenção: " + data.erro);
+                    showCustomAlert(data.erro, 'error');
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = "Atualizar Agora";
                     }
                 } else {
-                    alert("Arquivos atualizados!\nLog: " + data.log);
+                    showCustomAlert("<strong>Arquivos atualizados com sucesso!</strong><br><br>O sistema será reiniciado.<br><br><em>Log: " + data.log + "</em>", 'success');
                     // Só recarrega a página se a atualização der certo
-                    location.reload(true);
+                    setTimeout(() => location.reload(true), 2000);
                 }
             } catch (e) {
                 console.error("Erro ao solicitar update:", e);
-                alert("Erro de conexão ao tentar atualizar.");
+                showCustomAlert("Erro de conexão ao tentar atualizar o sistema.", 'error');
                 if (btn) {
                     btn.disabled = false;
                     btn.textContent = "Atualizar Agora";
@@ -2887,7 +3060,7 @@
         async function publicarAtualizacao() {
             const version = document.getElementById('updateVersion').value;
             const changelog = document.getElementById('updateChangelog').value;
-            if (!version || !changelog) return alert("Preencha a versão e as novidades.");
+            if (!version || !changelog) return showCustomAlert("Preencha o número da versão e as novidades para publicar.", 'warning');
 
             try {
                 const res = await fetch('/dev/publish-update', {
@@ -2896,11 +3069,11 @@
                     body: JSON.stringify({ version, changelog })
                 });
                 const data = await res.json();
-                alert(data.status || data.detail);
+                showCustomAlert(data.status || data.detail, res.ok ? 'success' : 'error');
                 if (res.ok) {
                     bootstrap.Modal.getInstance(document.getElementById('publishUpdateModal')).hide();
                 }
-            } catch (e) { alert("Erro ao publicar."); }
+            } catch (e) { showCustomAlert("Ocorreu um erro de conexão ao publicar a atualização.", 'error'); }
         }
 
         // --- Verificação de APK (Android) ---
@@ -2942,6 +3115,26 @@
                         <a href="#" class="text-secondary text-decoration-none" onclick="ignorarDownloadApk()">Não
                             mostrar novamente</a>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Genérico para Alertas e Confirmações -->
+    <div class="modal fade" id="customAlertModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static"
+        data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header text-white" id="customAlertHeader">
+                    <h5 class="modal-title" id="customAlertTitle">Aviso</h5>
+                </div>
+                <div class="modal-body fs-6" id="customAlertBody" style="line-height: 1.6;">
+                    ...
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" id="customAlertCancelBtn"
+                        data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="customAlertOkBtn">OK</button>
                 </div>
             </div>
         </div>

@@ -6,7 +6,11 @@ import uvicorn
 import subprocess
 import shutil
 import uuid
-import time, httpx
+import time
+try:
+    import httpx
+except ImportError:
+    httpx = None
 import urllib.request
 from fastapi import FastAPI, HTTPException, Form, Request, Depends, Response, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,7 +26,7 @@ from services import (
     listar_cadastros as service_listar_cadastros,
     excluir_cadastro as service_excluir_cadastro,
     get_cadastro_por_id as service_get_cadastro_por_id,
-    atualizar_cadastro as service_atualizar_cadastro,
+    atualizar_cadastro as service_atualizar_cadastro, get_empresa_por_cnpj, get_empresa_por_id,
     setup_usuarios,
     get_usuario,
     verificar_senha,
@@ -45,8 +49,8 @@ from services import (
     get_global_last_message_id, registrar_log, listar_historico,
     gerar_excel_historico, listar_usuarios_do_historico,
     close_protocols_bulk, salvar_arquivo_db, listar_arquivos_db,
-    get_arquivo_por_id, excluir_arquivo_db,
-    get_system_health, salvar_historico_performance,
+    get_arquivo_por_id, excluir_arquivo_db, criar_backup_sistema,
+    get_system_health, salvar_historico_performance, 
     obter_historico_performance, limpar_historico_performance
 )
 
@@ -100,36 +104,47 @@ class AppVersionModel(BaseModel):
 
 async def log_performance_periodically():
     """Tarefa de fundo que salva a performance do servidor a cada 5 minutos, 24/7."""
-    # Criar um cliente HTTP assíncrono que será reutilizado
-    async with httpx.AsyncClient() as client:
-        while True:
-            # A tarefa agora espera 5 minutos. 1 minuto é muito agressivo e pode
-            # consumir recursos desnecessários. 5 minutos é suficiente para
-            # manter o servidor "acordado" na maioria das plataformas.
-            await asyncio.sleep(300)  # Espera 5 minutos
-            try:
-                health = get_system_health()
-                ping_railway = 0
+    while True:
+        # A tarefa agora espera 5 minutos.
+        await asyncio.sleep(300)
+        try:
+            health = get_system_health()
+            ping_railway = 0
+            
+            # Só tenta medir ping externo se o httpx estiver instalado
+            if httpx:
                 try:
-                    start_time = time.time()
-                    # Usa o cliente assíncrono para não bloquear o servidor
-                    await client.get(
-                        "https://projeto-sistema-de-veiculos-production.up.railway.app/app-version", timeout=10)
-                    ping_railway = int((time.time() - start_time) * 1000)
+                    async with httpx.AsyncClient() as client:
+                        start_time = time.time()
+                        await client.get(
+                            "https://projeto-sistema-de-veiculos-production.up.railway.app/app-version", timeout=10)
+                        ping_railway = int((time.time() - start_time) * 1000)
                 except Exception:
                     ping_railway = 0  # Marca como 0 se falhar
 
-                salvar_historico_performance(
-                    health.get("cpu_usage", 0),
-                    health.get("ram_usage", 0),
-                    health.get("disk_usage", 0),
-                    1,  # Ping local (irrelevante no servidor)
-                    ping_railway
-                )
-            except Exception as e:
-                # Imprime o erro no console do servidor para debug, mas não para a tarefa
-                print(f"ERRO NA TAREFA DE HISTÓRICO: {e}")
+            salvar_historico_performance(
+                health.get("cpu_usage", 0),
+                health.get("ram_usage", 0),
+                health.get("disk_usage", 0),
+                1,  # Ping local (irrelevante no servidor)
+                ping_railway
+            )
+        except Exception as e:
+            # Imprime o erro no console do servidor para debug, mas não para a tarefa
+            print(f"ERRO NA TAREFA DE HISTÓRICO: {e}")
 
+
+async def auto_backup_periodically():
+    """Tarefa de fundo que faz backup do código e banco a cada 30 minutos."""
+    while True:
+        # Espera 30 minutos (1800 segundos)
+        await asyncio.sleep(1800)
+        try:
+            print("⏳ Iniciando backup automático...")
+            res = criar_backup_sistema()
+            print(f"✅ {res.get('status')} - {res.get('arquivo')}")
+        except Exception as e:
+            print(f"❌ Erro no backup automático: {e}")
 
 app = FastAPI(title="API Controle de Veículos")
 
@@ -158,6 +173,10 @@ def on_startup():
     setup_usuarios()
     # Inicia a tarefa de fundo para coletar dados de performance continuamente
     asyncio.create_task(log_performance_periodically())
+    # Inicia a tarefa de backup automático
+    asyncio.create_task(auto_backup_periodically())
+    # Faz um backup imediato ao ligar o servidor (segurança extra)
+    criar_backup_sistema()
 
 
 # Adicionar o middleware de sessão
@@ -193,7 +212,12 @@ async def get_logged_user(request: Request):
     if not user:
         raise HTTPException(
             status_code=401, detail="Você precisa estar logado para realizar esta ação.")
-    return user
+    
+    empresa_id = request.session.get("empresa_id")
+    if not empresa_id:
+        raise HTTPException(
+            status_code=401, detail="Sessão inválida. Empresa não identificada.")
+    return {"user": user, "empresa_id": empresa_id}
 
 
 @app.get("/")
@@ -204,16 +228,44 @@ def login_page(request: Request):
 
 
 @app.post("/login")
-async def login_form(request: Request, username: str = Form(...), password: str = Form(...)):
-    user = get_usuario(username)
+async def login_form(request: Request):
+    # Lê o formulário manualmente para evitar o erro de validação do FastAPI com campos opcionais
+    form_data = await request.form()
+    username = form_data.get("username")
+    password = form_data.get("password")
+    cnpj = form_data.get("cnpj")  # Pode ser None ou uma string vazia
+
+    if not username or not password:
+        # Validação básica para campos que são sempre obrigatórios
+        return RedirectResponse(url="/?error=1", status_code=303)
+
+    # 1. Validar a empresa
+    empresa = None
+    special_users = ['admin', 'neto@dev.com']
+
+    if username in special_users and not cnpj:
+        # Se for admin/dev e não digitou CNPJ, usa a empresa padrão (ID 1)
+        empresa = get_empresa_por_id(1)
+    else:
+        if not cnpj:  # Se não for usuário especial, CNPJ é obrigatório
+            return RedirectResponse(url="/?error=1", status_code=303)
+        cnpj_limpo = "".join(filter(str.isdigit, cnpj))
+        empresa = get_empresa_por_cnpj(cnpj_limpo)
+
+    if not empresa:
+        return RedirectResponse(url="/?error=1", status_code=303)
+
+    # 2. Validar o usuário DENTRO da empresa encontrada
+    user = get_usuario(username, empresa['id'])
     if not user or not verificar_senha(password, user["password_hash"]):
         return RedirectResponse(url="/?error=1", status_code=303)
 
     request.session["user"] = user["username"]
-    request.session["role"] = user["role"] if "role" in user.keys(
-    ) else "operador"
+    request.session["role"] = user["role"]
+    request.session["empresa_id"] = empresa["id"]
+    request.session["nome_empresa"] = empresa["nome_empresa"]
 
-    registrar_log(user["username"], "LOGIN", "Acesso ao sistema realizado.")
+    registrar_log(user["username"], "LOGIN", empresa["id"], "Acesso ao sistema realizado.")
     
     # Se for vigilante, manda direto para o scanner
     if request.session["role"] == "vigilante":
@@ -225,7 +277,8 @@ async def login_form(request: Request, username: str = Form(...), password: str 
 @app.get("/logout")
 async def logout(request: Request):
     user = request.session.get("user", "Desconhecido")
-    registrar_log(user, "LOGOUT", "Saída do sistema.")
+    empresa_id = request.session.get("empresa_id", 0)
+    registrar_log(user, "LOGOUT", empresa_id, "Saída do sistema.")
     request.session.clear()
     return RedirectResponse(url="/")
 
@@ -255,29 +308,30 @@ def main_app(request: Request, user: str = Depends(get_current_user)):
 def get_me(request: Request):
     user = request.session.get("user")
     role = request.session.get("role")
+    nome_empresa = request.session.get("nome_empresa")
     if not user:
         return {"authenticated": False}
-    return {"authenticated": True, "username": user, "role": role}
+    return {"authenticated": True, "username": user, "role": role, "nome_empresa": nome_empresa}
 
 
 @app.post("/entrada")
-def entrada(placa: str, tipo: str, user: str = Depends(get_logged_user)):
-    res = registrar_entrada(placa, tipo)
+def entrada(placa: str, tipo: str, auth_data: dict = Depends(get_logged_user)):
+    res = registrar_entrada(placa, tipo, auth_data["empresa_id"])
     if "status" in res:
-        registrar_log(user, "ENTRADA VEÍCULO",
+        registrar_log(auth_data["user"], "ENTRADA VEÍCULO", auth_data["empresa_id"],
                       f"Placa: {placa} | Tipo: {tipo}")
     return res
 
 
 @app.post("/saida")
-def saida(placa: str, user: str = Depends(get_logged_user)):
-    registrar_log(user, "SAÍDA VEÍCULO", f"Placa: {placa}")
-    return registrar_saida(placa)
+def saida(placa: str, auth_data: dict = Depends(get_logged_user)):
+    registrar_log(auth_data["user"], "SAÍDA VEÍCULO", auth_data["empresa_id"], f"Placa: {placa}")
+    return registrar_saida(placa, auth_data["empresa_id"])
 
 
 @app.get("/veiculos")
-def veiculos(user: str = Depends(get_logged_user)):
-    dados = listar_veiculos()
+def veiculos(auth_data: dict = Depends(get_logged_user)):
+    dados = listar_veiculos(auth_data["empresa_id"])
     return [
         {"placa": v[0], "tipo": v[1], "entrada": v[2], "responsavel": v[3]}
         for v in dados
@@ -285,8 +339,8 @@ def veiculos(user: str = Depends(get_logged_user)):
 
 
 @app.get("/saidas")
-def saidas(user: str = Depends(get_logged_user)):
-    dados = listar_saidas()
+def saidas(auth_data: dict = Depends(get_logged_user)):
+    dados = listar_saidas(auth_data["empresa_id"])
     return [
         {"placa": v[0], "tipo": v[1], "entrada": v[2],
             "saida": v[3], "responsavel": v[4]}
@@ -295,26 +349,26 @@ def saidas(user: str = Depends(get_logged_user)):
 
 
 @app.post("/reset")
-def reset(user: str = Depends(get_logged_user)):
-    registrar_log(user, "RESET BANCO", "Limpou todos os veículos do pátio.")
-    return resetar_banco()
+def reset(auth_data: dict = Depends(get_logged_user)):
+    registrar_log(auth_data["user"], "RESET BANCO", auth_data["empresa_id"], "Limpou todos os veículos do pátio.")
+    return resetar_banco(auth_data["empresa_id"])
 
 
 @app.post("/cadastro")
-def novo_cadastro(dados: CadastroModel, user: str = Depends(get_logged_user)):
-    registrar_log(user, "NOVO CADASTRO", f"Nome: {dados.nome}")
-    return registrar_cadastro(dados.dict())
+def novo_cadastro(dados: CadastroModel, auth_data: dict = Depends(get_logged_user)):
+    registrar_log(auth_data["user"], "NOVO CADASTRO", auth_data["empresa_id"], f"Nome: {dados.nome}")
+    return registrar_cadastro(dados.dict(), auth_data["empresa_id"])
 
 
 @app.put("/cadastro/{cadastro_id}")
-def atualizar_cadastro_endpoint(cadastro_id: int, dados: CadastroModel, user: str = Depends(get_logged_user)):
-    registrar_log(user, "ATUALIZAR CADASTRO", f"ID: {cadastro_id}")
-    return service_atualizar_cadastro(cadastro_id, dados.dict())
+def atualizar_cadastro_endpoint(cadastro_id: int, dados: CadastroModel, auth_data: dict = Depends(get_logged_user)):
+    registrar_log(auth_data["user"], "ATUALIZAR CADASTRO", auth_data["empresa_id"], f"ID: {cadastro_id}")
+    return service_atualizar_cadastro(cadastro_id, dados.dict(), auth_data["empresa_id"])
 
 
 @app.get("/cadastros")
-def listar_cadastros_endpoint(busca: Optional[str] = None, user: str = Depends(get_logged_user)):
-    registros = service_listar_cadastros(busca)
+def listar_cadastros_endpoint(busca: Optional[str] = None, auth_data: dict = Depends(get_logged_user)):
+    registros = service_listar_cadastros(auth_data["empresa_id"], busca)
     return [
         {
             "id": r[0], "nome": r[1], "cpf": r[2], "telefone": r[3],
@@ -325,22 +379,22 @@ def listar_cadastros_endpoint(busca: Optional[str] = None, user: str = Depends(g
 
 
 @app.get("/cadastro/{cadastro_id}")
-def get_cadastro_endpoint(cadastro_id: int, user: str = Depends(get_logged_user)):
-    cadastro = service_get_cadastro_por_id(cadastro_id)
+def get_cadastro_endpoint(cadastro_id: int, auth_data: dict = Depends(get_logged_user)):
+    cadastro = service_get_cadastro_por_id(cadastro_id, auth_data["empresa_id"])
     if not cadastro:
         raise HTTPException(status_code=404, detail="Cadastro não encontrado")
     return cadastro
 
 
 @app.delete("/cadastro/{cadastro_id}")
-def excluir_cadastro_endpoint(cadastro_id: int, user: str = Depends(get_logged_user)):
-    registrar_log(user, "EXCLUIR CADASTRO", f"ID: {cadastro_id}")
-    return service_excluir_cadastro(cadastro_id)
+def excluir_cadastro_endpoint(cadastro_id: int, auth_data: dict = Depends(get_logged_user)):
+    registrar_log(auth_data["user"], "EXCLUIR CADASTRO", auth_data["empresa_id"], f"ID: {cadastro_id}")
+    return service_excluir_cadastro(cadastro_id, auth_data["empresa_id"])
 
 
 @app.get("/estatisticas")
-def estatisticas(user: str = Depends(get_logged_user)):
-    return obter_estatisticas()
+def estatisticas(auth_data: dict = Depends(get_logged_user)):
+    return obter_estatisticas(auth_data["empresa_id"])
 
 # --- Rotas de Histórico (Logs) ---
 
@@ -398,28 +452,28 @@ def api_download_relatorio_evolucao(user: str = Depends(get_logged_user)):
 
 
 @app.get("/api/historico")
-def api_get_historico(request: Request, usuario: Optional[str] = None, user: str = Depends(get_logged_user)):
+def api_get_historico(request: Request, usuario: Optional[str] = None, auth_data: dict = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
-    return listar_historico(usuario)
+    return listar_historico(auth_data["empresa_id"], usuario)
 
 
 @app.get("/api/historico/usuarios")
-def api_get_historico_usuarios(request: Request, user: str = Depends(get_logged_user)):
+def api_get_historico_usuarios(request: Request, auth_data: dict = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
-    return listar_usuarios_do_historico()
+    return listar_usuarios_do_historico(auth_data["empresa_id"])
 
 
 @app.get("/api/historico/exportar")
-def api_exportar_historico(request: Request, usuario: Optional[str] = None, user: str = Depends(get_logged_user)):
+def api_exportar_historico(request: Request, usuario: Optional[str] = None, auth_data: dict = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
 
-    caminho, nome_arquivo = gerar_excel_historico(usuario)
+    caminho, nome_arquivo = gerar_excel_historico(auth_data["empresa_id"], usuario)
 
     log_details = f"Exportou histórico de ações para o usuário '{usuario}'." if usuario else "Exportou histórico de ações completo."
     registrar_log(user, "EXPORTAÇÃO", log_details)
@@ -431,49 +485,49 @@ def api_exportar_historico(request: Request, usuario: Optional[str] = None, user
 
 
 @app.get("/usuarios")
-def api_listar_usuarios(request: Request, user: str = Depends(get_logged_user)):
+def api_listar_usuarios(request: Request, auth_data: dict = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
-    return listar_usuarios()
+    return listar_usuarios(auth_data["empresa_id"])
 
 
 @app.post("/usuarios")
-def novo_usuario(dados: UsuarioModel, request: Request, user: str = Depends(get_logged_user)):
+def novo_usuario(dados: UsuarioModel, request: Request, auth_data: dict = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(
             status_code=403, detail="Apenas gerentes podem criar usuários.")
-    registrar_log(user, "CRIAR USUÁRIO",
+    registrar_log(auth_data["user"], "CRIAR USUÁRIO", auth_data["empresa_id"],
                   f"Novo user: {dados.username} | Cargo: {dados.role}")
-    return criar_usuario(dados.username, dados.password, dados.role)
+    return criar_usuario(dados.username, dados.password, dados.role, auth_data["empresa_id"])
 
 
 @app.put("/usuarios/{user_id}")
-def api_atualizar_usuario(user_id: int, dados: UsuarioModel, request: Request, user: str = Depends(get_logged_user)):
+def api_atualizar_usuario(user_id: int, dados: UsuarioModel, request: Request, auth_data: dict = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
     # Passamos a senha (pode ser vazia se não for alterar)
-    registrar_log(user, "EDITAR USUÁRIO", f"ID: {user_id}")
-    return atualizar_usuario(user_id, dados.username, dados.password, dados.role)
+    registrar_log(auth_data["user"], "EDITAR USUÁRIO", auth_data["empresa_id"], f"ID: {user_id}")
+    return atualizar_usuario(user_id, dados.username, dados.password, dados.role, auth_data["empresa_id"])
 
 
 @app.delete("/usuarios/{user_id}")
-def api_excluir_usuario(user_id: int, request: Request, user: str = Depends(get_logged_user)):
+def api_excluir_usuario(user_id: int, request: Request, auth_data: dict = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
-    registrar_log(user, "EXCLUIR USUÁRIO", f"ID: {user_id}")
-    return excluir_usuario(user_id)
+    registrar_log(auth_data["user"], "EXCLUIR USUÁRIO", auth_data["empresa_id"], f"ID: {user_id}")
+    return excluir_usuario(user_id, auth_data["empresa_id"])
 
 
 @app.post("/usuarios/importar")
-def api_importar_usuarios(request: Request, user: str = Depends(get_logged_user)):
+def api_importar_usuarios(request: Request, auth_data: dict = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['gerente', 'admin', 'dev']:
         raise HTTPException(status_code=403, detail="Acesso negado")
-    registrar_log(user, "IMPORTAR USUÁRIOS", "Via CSV Backup")
+    registrar_log(auth_data["user"], "IMPORTAR USUÁRIOS", auth_data["empresa_id"], "Via CSV Backup")
     return importar_usuarios_csv()
 
 
@@ -481,32 +535,32 @@ def api_importar_usuarios(request: Request, user: str = Depends(get_logged_user)
 
 
 @app.get("/chat/my-protocol")
-def get_my_open_protocol(request: Request, user: str = Depends(get_logged_user)):
+def get_my_open_protocol(request: Request, auth_data: dict = Depends(get_logged_user)):
     """Busca o protocolo aberto do usuário logado e suas mensagens."""
-    protocol = get_open_protocol_for_user(user)
+    protocol = get_open_protocol_for_user(auth_data["user"], auth_data["empresa_id"])
     if not protocol:
         return {"protocolo_id": None, "messages": []}
 
-    messages = get_messages_by_protocol(protocol['id'])
+    messages = get_messages_by_protocol(protocol['id'], auth_data["empresa_id"])
     return {"protocolo_id": protocol['id'], "messages": messages, "status": protocol['status']}
 
 
 @app.post("/chat/send-message")
-def send_chat_message(dados: ChatMessage, request: Request, user: str = Depends(get_logged_user)):
+def send_chat_message(dados: ChatMessage, request: Request, auth_data: dict = Depends(get_logged_user)):
     """Envia uma mensagem. Cria um protocolo se não existir."""
     try:
         role = request.session.get("role")
 
         # Se vier um ID de protocolo (resposta do dev ou continuação), usa ele
         if dados.protocolo_id:
-            return save_chat_message(dados.protocolo_id, user, dados.texto)
+            return save_chat_message(dados.protocolo_id, auth_data["user"], dados.texto, auth_data["empresa_id"])
 
         # Se não vier ID, busca um aberto (para clientes) ou cria novo
-        open_protocol = get_open_protocol_for_user(user)
+        open_protocol = get_open_protocol_for_user(auth_data["user"], auth_data["empresa_id"])
         if open_protocol:
-            return save_chat_message(open_protocol['id'], user, dados.texto)
+            return save_chat_message(open_protocol['id'], auth_data["user"], dados.texto, auth_data["empresa_id"])
         else:
-            return create_protocol_and_message(user, dados.texto)
+            return create_protocol_and_message(auth_data["user"], dados.texto, auth_data["empresa_id"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
@@ -514,7 +568,7 @@ def send_chat_message(dados: ChatMessage, request: Request, user: str = Depends(
 
 
 @app.get("/chat/protocols")
-def get_all_protocols(request: Request, user: str = Depends(get_logged_user)):
+def get_all_protocols(request: Request, auth_data: dict = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['dev', 'admin']:
         raise HTTPException(status_code=403, detail="Acesso negado.")
@@ -522,21 +576,21 @@ def get_all_protocols(request: Request, user: str = Depends(get_logged_user)):
 
 
 @app.get("/chat/protocols/{protocol_id}")
-def get_protocol_messages(protocol_id: int, request: Request, user: str = Depends(get_logged_user)):
+def get_protocol_messages(protocol_id: int, request: Request, auth_data: dict = Depends(get_logged_user)):
     role = request.session.get("role")
     if role not in ['dev', 'admin']:
         raise HTTPException(status_code=403, detail="Acesso negado.")
 
-    messages = get_messages_by_protocol(protocol_id)
+    messages = get_messages_by_protocol(protocol_id, auth_data["empresa_id"])
 
-    proto = get_protocol_by_id(protocol_id)
+    proto = get_protocol_by_id(protocol_id, auth_data["empresa_id"])
     status = proto['status'] if proto else 'aberto'
 
     return {"protocolo_id": protocol_id, "messages": messages, "status": status}
 
 
 @app.post("/chat/protocol/{protocol_id}/close")
-def close_protocol_endpoint(protocol_id: int, request: Request, user: str = Depends(get_logged_user)):
+def close_protocol_endpoint(protocol_id: int, request: Request, auth_data: dict = Depends(get_logged_user)):
     """Encerra o atendimento e solicita avaliação (Apenas Admin/Dev)."""
     role = request.session.get("role")
     # Garante que cliente não possa encerrar
@@ -544,36 +598,37 @@ def close_protocol_endpoint(protocol_id: int, request: Request, user: str = Depe
         raise HTTPException(
             status_code=403, detail="Apenas suporte pode encerrar.")
 
-    update_protocol_status(protocol_id, 'avaliando')
+    update_protocol_status(protocol_id, 'avaliando', auth_data["empresa_id"])
     return {"status": "Protocolo enviado para avaliação"}
 
 
 @app.post("/chat/protocol/{protocol_id}/rate")
-def rate_protocol_endpoint(protocol_id: int, dados: dict, request: Request, user: str = Depends(get_logged_user)):
+def rate_protocol_endpoint(protocol_id: int, dados: dict, request: Request, auth_data: dict = Depends(get_logged_user)):
     """Recebe a avaliação do cliente e fecha o protocolo."""
     # Aqui você poderia salvar a nota no banco se tivesse a coluna, por enquanto apenas fecha.
-    update_protocol_status(protocol_id, 'fechado')
+    update_protocol_status(protocol_id, 'fechado', auth_data["empresa_id"])
     return {"status": "Avaliação recebida e protocolo fechado."}
 
 
 @app.post("/chat/protocols/bulk-close")
-def bulk_close_endpoint(dados: BulkCloseRequest, request: Request, user: str = Depends(get_logged_user)):
+def bulk_close_endpoint(dados: BulkCloseRequest, request: Request, auth_data: dict = Depends(get_logged_user)):
     """Encerra múltiplos protocolos selecionados (Brute-force)."""
     role = request.session.get("role")
     if role not in ['dev', 'admin']:
         raise HTTPException(status_code=403, detail="Acesso negado.")
 
-    result = close_protocols_bulk(dados.ids)
+    result = close_protocols_bulk(dados.ids, auth_data["empresa_id"])
     return {"status": f"{result['count']} protocolos encerrados."}
 
 
 # --- Rotas de Arquivos (Nuvem) ---
 
 @app.post("/api/arquivos/upload")
-async def upload_arquivo(file: UploadFile = File(...), user: str = Depends(get_logged_user)):
+async def upload_arquivo(file: UploadFile = File(...), auth_data: dict = Depends(get_logged_user)):
     try:
         # Gera nome único para não sobrescrever
-        extensao = os.path.splitext(file.filename)[1]
+        filename = file.filename or "unknown"
+        extensao = os.path.splitext(filename)[1]
         nome_fisico = f"{uuid.uuid4()}{extensao}"
         caminho_completo = os.path.join("uploads", nome_fisico)
 
@@ -590,8 +645,8 @@ async def upload_arquivo(file: UploadFile = File(...), user: str = Depends(get_l
         else:
             tamanho_str = f"{round(tamanho_bytes/(1024*1024), 1)} MB"
 
-        salvar_arquivo_db(file.filename, nome_fisico, tamanho_str, user)
-        registrar_log(user, "UPLOAD ARQUIVO", f"Arquivo: {file.filename}")
+        salvar_arquivo_db(file.filename, nome_fisico, tamanho_str, auth_data["user"], auth_data["empresa_id"])
+        registrar_log(auth_data["user"], "UPLOAD ARQUIVO", auth_data["empresa_id"], f"Arquivo: {file.filename}")
 
         return {"status": "Upload realizado com sucesso!"}
     except Exception as e:
@@ -599,13 +654,13 @@ async def upload_arquivo(file: UploadFile = File(...), user: str = Depends(get_l
 
 
 @app.get("/api/arquivos")
-def api_listar_arquivos(user: str = Depends(get_logged_user)):
-    return listar_arquivos_db()
+def api_listar_arquivos(auth_data: dict = Depends(get_logged_user)):
+    return listar_arquivos_db(auth_data["empresa_id"])
 
 
 @app.get("/api/arquivos/download/{arquivo_id}")
-def download_arquivo(arquivo_id: int, user: str = Depends(get_logged_user)):
-    arquivo = get_arquivo_por_id(arquivo_id)
+def download_arquivo(arquivo_id: int, auth_data: dict = Depends(get_logged_user)):
+    arquivo = get_arquivo_por_id(arquivo_id, auth_data["empresa_id"])
     if not arquivo:
         raise HTTPException(status_code=404, detail="Arquivo não encontrado")
 
@@ -618,8 +673,8 @@ def download_arquivo(arquivo_id: int, user: str = Depends(get_logged_user)):
 
 
 @app.delete("/api/arquivos/{arquivo_id}")
-def delete_arquivo(arquivo_id: int, request: Request, user: str = Depends(get_logged_user)):
-    arquivo = get_arquivo_por_id(arquivo_id)
+def delete_arquivo(arquivo_id: int, request: Request, auth_data: dict = Depends(get_logged_user)):
+    arquivo = get_arquivo_por_id(arquivo_id, auth_data["empresa_id"])
     if not arquivo:
         return {"erro": "Arquivo não encontrado"}
 
@@ -628,8 +683,8 @@ def delete_arquivo(arquivo_id: int, request: Request, user: str = Depends(get_lo
     if os.path.exists(caminho):
         os.remove(caminho)
 
-    excluir_arquivo_db(arquivo_id)
-    registrar_log(user, "EXCLUIR ARQUIVO", f"ID: {arquivo_id}")
+    excluir_arquivo_db(arquivo_id, auth_data["empresa_id"])
+    registrar_log(auth_data["user"], "EXCLUIR ARQUIVO", auth_data["empresa_id"], f"ID: {arquivo_id}")
     return {"status": "Arquivo excluído"}
 
 
@@ -640,9 +695,9 @@ def get_last_msg_id(user: str = Depends(get_logged_user)):
 
 
 @app.get("/chat/my-history")
-def get_my_protocol_history(request: Request, user: str = Depends(get_logged_user)):
+def get_my_protocol_history(request: Request, auth_data: dict = Depends(get_logged_user)):
     """Busca o histórico de protocolos do usuário logado."""
-    return get_protocols_for_user_history(user)
+    return get_protocols_for_user_history(auth_data["user"], auth_data["empresa_id"])
 
 # --- Rotas de Layout Dinâmico (Apenas DEV) ---
 
@@ -693,6 +748,18 @@ def publish_update(dados: AppVersionModel, request: Request, user: str = Depends
         raise HTTPException(
             status_code=403, detail="Apenas o desenvolvedor pode publicar atualizações.")
     return set_app_version(dados.version, dados.changelog)
+
+# --- Rota de Backup Manual ---
+
+@app.post("/system/backup-now")
+def trigger_manual_backup(auth_data: dict = Depends(get_logged_user)):
+    """Força a criação de um backup agora."""
+    role = get_usuario(auth_data["user"], auth_data["empresa_id"])['role']
+    if role not in ['admin', 'dev']:
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+    
+    registrar_log(auth_data["user"], "BACKUP MANUAL", auth_data["empresa_id"], "Solicitou backup completo do sistema.")
+    return criar_backup_sistema()
 
 # --- Rota de Auto-Atualização (Git Pull) ---
 
@@ -746,6 +813,19 @@ def run_sql(dados: SqlQuery, request: Request, user: str = Depends(get_logged_us
         raise HTTPException(
             status_code=403, detail="Acesso negado. Apenas admin.")
     return executar_sql_raw(dados.query)
+
+
+@app.post("/dev/clear-visual-config")
+def clear_visual_config(request: Request, auth_data: dict = Depends(get_logged_user)):
+    """Limpa as configurações salvas pelo editor visual (no-code)."""
+    role = request.session.get("role")
+    if role != 'dev':
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+
+    salvar_config_visual({})  # Salva um objeto JSON vazio, efetivamente limpando.
+    registrar_log(auth_data["user"], "RESET VISUAL", auth_data["empresa_id"],
+                  "Limpou as configurações visuais (no-code).")
+    return {"status": "Configurações visuais foram resetadas com sucesso."}
 
 # --- Rota do APP de Monitoramento (Mobile PWA) ---
 

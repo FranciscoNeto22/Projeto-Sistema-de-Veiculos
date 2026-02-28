@@ -3,6 +3,7 @@ import csv
 import os
 import sqlite3
 from datetime import datetime
+import zipfile
 from typing import Optional
 import bcrypt
 import json
@@ -16,15 +17,15 @@ def get_db_connection():
     return sqlite3.connect("estacionamento.db", timeout=10, check_same_thread=False)
 
 
-def registrar_entrada(placa, tipo, responsavel=None, cpf_responsavel=None):
+def registrar_entrada(placa, tipo, empresa_id, responsavel=None, cpf_responsavel=None):
     entrada = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT 1 FROM movimentacoes 
-            WHERE placa = ? AND saida IS NULL
-        """, (placa,))
+            WHERE placa = ? AND saida IS NULL AND empresa_id = ?
+        """, (placa, empresa_id))
         if cursor.fetchone():
             return {"erro": "Veículo já está no estacionamento"}
 
@@ -34,24 +35,24 @@ def registrar_entrada(placa, tipo, responsavel=None, cpf_responsavel=None):
             cols = [r[1] for r in cursor.fetchall()]
             if 'responsavel' in cols and 'cpf_responsavel' in cols:
                 cursor.execute("""
-                    INSERT INTO movimentacoes (placa, tipo, entrada, responsavel, cpf_responsavel)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (placa, tipo, entrada, responsavel, cpf_responsavel))
+                    INSERT INTO movimentacoes (placa, tipo, entrada, responsavel, cpf_responsavel, empresa_id)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (placa, tipo, entrada, responsavel, cpf_responsavel, empresa_id))
             else:
                 cursor.execute("""
-                    INSERT INTO movimentacoes (placa, tipo, entrada)
-                    VALUES (?, ?, ?)
-                """, (placa, tipo, entrada))
+                    INSERT INTO movimentacoes (placa, tipo, entrada, empresa_id)
+                    VALUES (?, ?, ?, ?)
+                """, (placa, tipo, entrada, empresa_id))
         except Exception:
             cursor.execute("""
-                INSERT INTO movimentacoes (placa, tipo, entrada)
-                VALUES (?, ?, ?)
-            """, (placa, tipo, entrada))
+                INSERT INTO movimentacoes (placa, tipo, entrada, empresa_id)
+                VALUES (?, ?, ?, ?)
+            """, (placa, tipo, entrada, empresa_id))
 
     return {"status": "entrada registrada", "placa": placa}
 
 
-def registrar_saida(placa):
+def registrar_saida(placa, empresa_id):
     saida = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
     with get_db_connection() as conn:
@@ -59,8 +60,8 @@ def registrar_saida(placa):
         cursor.execute("""
             UPDATE movimentacoes
             SET saida = ?
-            WHERE placa = ? AND saida IS NULL
-        """, (saida, placa))
+            WHERE placa = ? AND saida IS NULL AND empresa_id = ?
+        """, (saida, placa, empresa_id))
 
         if cursor.rowcount == 0:
             return {"erro": "Veículo não encontrado"}
@@ -68,37 +69,37 @@ def registrar_saida(placa):
     return {"status": "saida registrada", "placa": placa}
 
 
-def listar_veiculos():
+def listar_veiculos(empresa_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT placa, tipo, entrada, responsavel, cpf_responsavel
             FROM movimentacoes
-            WHERE saida IS NULL
-        """)
+            WHERE saida IS NULL AND empresa_id = ?
+        """, (empresa_id,))
         return cursor.fetchall()
 
 
-def listar_saidas():
+def listar_saidas(empresa_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT placa, tipo, entrada, saida, responsavel, cpf_responsavel
             FROM movimentacoes
-            WHERE saida IS NOT NULL
+            WHERE saida IS NOT NULL AND empresa_id = ?
             ORDER BY id DESC
-        """)
+        """, (empresa_id,))
         return cursor.fetchall()
 
 
-def resetar_banco():
+def resetar_banco(empresa_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM movimentacoes")
-    return {"status": "banco de dados resetado com sucesso"}
+        cursor.execute("DELETE FROM movimentacoes WHERE empresa_id = ?", (empresa_id,))
+    return {"status": "Veículos da sua empresa foram resetados com sucesso"}
 
 
-def registrar_cadastro(dados):
+def registrar_cadastro(dados, empresa_id):
     # Garantir que a tabela existe
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -116,7 +117,8 @@ def registrar_cadastro(dados):
                 cpf TEXT,
                 empresa TEXT,
                 placa TEXT,
-                tipo_veiculo TEXT
+                tipo_veiculo TEXT,
+                empresa_id INTEGER NOT NULL
             )
         """)
 
@@ -130,24 +132,24 @@ def registrar_cadastro(dados):
                 "ALTER TABLE cadastros ADD COLUMN tipo_veiculo TEXT")
 
         cursor.execute("""
-            INSERT INTO cadastros (nome, data_nascimento, telefone, cep, endereco, numero, cargo, email, cpf, empresa, placa, tipo_veiculo)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO cadastros (nome, data_nascimento, telefone, cep, endereco, numero, cargo, email, cpf, empresa, placa, tipo_veiculo, empresa_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (dados.get('nome'), dados.get('data_nascimento'), dados.get('telefone'),
               dados.get('cep'), dados.get('endereco'), dados.get('numero'),
               dados.get('cargo'), dados.get('email'), dados.get('cpf'),
-              dados.get('empresa'), dados.get('placa'), dados.get('tipo_veiculo')))
+              dados.get('empresa'), dados.get('placa'), dados.get('tipo_veiculo'), empresa_id))
 
     # Registrar entrada automaticamente se houver placa informada
     if dados.get('placa'):
         tipo = dados.get('tipo_veiculo') if dados.get(
             'tipo_veiculo') else "Carro"
-        registrar_entrada(dados.get('placa'), tipo,
+        registrar_entrada(dados.get('placa'), tipo, empresa_id,
                           dados.get('nome'), dados.get('cpf'))
 
     return {"status": "Cadastro realizado com sucesso!"}
 
 
-def listar_cadastros(busca: Optional[str] = None):
+def listar_cadastros(empresa_id, busca: Optional[str] = None):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         # Garante que a tabela exista antes de consultar
@@ -155,7 +157,7 @@ def listar_cadastros(busca: Optional[str] = None):
             CREATE TABLE IF NOT EXISTS cadastros (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT, data_nascimento TEXT, telefone TEXT, cep TEXT,
                 endereco TEXT, numero TEXT, cargo TEXT, email TEXT, cpf TEXT,
-                empresa TEXT, placa TEXT, tipo_veiculo TEXT
+                empresa TEXT, placa TEXT, tipo_veiculo TEXT, empresa_id INTEGER
             )
         """)
 
@@ -163,48 +165,49 @@ def listar_cadastros(busca: Optional[str] = None):
             query = """
                 SELECT id, nome, cpf, telefone, email, cargo, empresa, placa
                 FROM cadastros
-                WHERE nome LIKE ? OR placa LIKE ?
+                WHERE empresa_id = ? AND (nome LIKE ? OR placa LIKE ?)
                 ORDER BY nome
             """
-            params = (f"%{busca}%", f"%{busca}%")
+            params = (empresa_id, f"%{busca}%", f"%{busca}%")
             cursor.execute(query, params)
         else:
             query = """
                 SELECT id, nome, cpf, telefone, email, cargo, empresa, placa
                 FROM cadastros
+                WHERE empresa_id = ?
                 ORDER BY nome
             """
-            cursor.execute(query)
+            cursor.execute(query, (empresa_id,))
 
         return cursor.fetchall()
 
 
-def excluir_cadastro(cadastro_id: int):
+def excluir_cadastro(cadastro_id: int, empresa_id: int):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM cadastros WHERE id = ?", (cadastro_id,))
+        cursor.execute("DELETE FROM cadastros WHERE id = ? AND empresa_id = ?", (cadastro_id, empresa_id))
         if cursor.rowcount == 0:
             return {"erro": "Cadastro não encontrado."}
     return {"status": "Cadastro excluído com sucesso!"}
 
 
-def get_cadastro_por_id(cadastro_id: int):
+def get_cadastro_por_id(cadastro_id: int, empresa_id: int):
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM cadastros WHERE id = ?", (cadastro_id,))
+        cursor.execute("SELECT * FROM cadastros WHERE id = ? AND empresa_id = ?", (cadastro_id, empresa_id))
         cadastro = cursor.fetchone()
         return cadastro
 
 
-def atualizar_cadastro(cadastro_id: int, dados):
+def atualizar_cadastro(cadastro_id: int, dados, empresa_id: int):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE cadastros SET
                 nome = ?, data_nascimento = ?, telefone = ?, cep = ?, endereco = ?,
                 numero = ?, cargo = ?, email = ?, cpf = ?, empresa = ?, placa = ?, tipo_veiculo = ?
-            WHERE id = ?
+            WHERE id = ? AND empresa_id = ?
         """, (
             dados.get('nome'), dados.get(
                 'data_nascimento'), dados.get('telefone'),
@@ -212,7 +215,7 @@ def atualizar_cadastro(cadastro_id: int, dados):
             dados.get('cargo'), dados.get('email'), dados.get('cpf'),
             dados.get('empresa'), dados.get(
                 'placa'), dados.get('tipo_veiculo'),
-            cadastro_id
+            cadastro_id, empresa_id
         ))
         if cursor.rowcount == 0:
             return {"erro": "Cadastro não encontrado para atualizar."}
@@ -227,11 +230,22 @@ def setup_usuarios():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
-                role TEXT DEFAULT 'operador'
+                role TEXT DEFAULT 'operador',
+                empresa_id INTEGER NOT NULL,
+                FOREIGN KEY (empresa_id) REFERENCES empresas (id)
+            )
+        """)
+        
+        # --- NOVA TABELA DE EMPRESAS ---
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS empresas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome_empresa TEXT NOT NULL,
+                cnpj TEXT UNIQUE NOT NULL
             )
         """)
 
-        # Migração: Adicionar coluna role se não existir
+        # --- MIGRAÇÃO AUTOMÁTICA DE COLUNAS ---
         cursor.execute("PRAGMA table_info(usuarios)")
         cols = [r[1] for r in cursor.fetchall()]
         if 'role' not in cols:
@@ -240,6 +254,14 @@ def setup_usuarios():
             # Atualiza o admin para ter permissão total
             cursor.execute(
                 "UPDATE usuarios SET role = 'admin' WHERE username = 'admin'")
+        
+        if 'empresa_id' not in cols:
+            cursor.execute("ALTER TABLE usuarios ADD COLUMN empresa_id INTEGER NOT NULL DEFAULT 1")
+
+        # Garante que a empresa padrão (ID 1) exista
+        cursor.execute("SELECT id FROM empresas WHERE id = 1")
+        if not cursor.fetchone():
+            cursor.execute("INSERT OR IGNORE INTO empresas (id, nome_empresa, cnpj) VALUES (1, 'Empresa Padrão', '00000000000000')")
 
         # Criar tabela de configurações (para o layout dinâmico)
         cursor.execute("""
@@ -257,7 +279,8 @@ def setup_usuarios():
                 usuario_cliente TEXT NOT NULL,
                 assunto TEXT,
                 data_inicio TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'aberto' -- aberto, fechado
+                status TEXT NOT NULL DEFAULT 'aberto', -- aberto, fechado
+                empresa_id INTEGER NOT NULL
             )
         """)
 
@@ -276,6 +299,7 @@ def setup_usuarios():
                 usuario TEXT NOT NULL,
                 texto TEXT NOT NULL,
                 data_hora TEXT NOT NULL,
+                empresa_id INTEGER NOT NULL,
                 FOREIGN KEY (protocolo_id) REFERENCES chat_protocolos (id)
             )
         """)
@@ -288,7 +312,8 @@ def setup_usuarios():
                 caminho_salvo TEXT,
                 tamanho TEXT,
                 data_upload TEXT,
-                uploader TEXT
+                uploader TEXT,
+                empresa_id INTEGER NOT NULL
             )
         """)
 
@@ -299,7 +324,8 @@ def setup_usuarios():
                 usuario TEXT,
                 acao TEXT,
                 detalhes TEXT,
-                data_hora TEXT
+                data_hora TEXT,
+                empresa_id INTEGER NOT NULL
             )
         """)
 
@@ -321,7 +347,7 @@ def setup_usuarios():
         if not cursor.fetchone():
             admin_pass_hash = get_hash_senha("admin")
             cursor.execute(
-                "INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", ('admin', admin_pass_hash, 'admin'))
+                "INSERT INTO usuarios (username, password_hash, role, empresa_id) VALUES (?, ?, ?, ?)", ('admin', admin_pass_hash, 'admin', 1))
 
         # Criar usuário DEV (Dono) se não existir
         cursor.execute(
@@ -330,7 +356,7 @@ def setup_usuarios():
             # Senha solicitada: 126918dev#@
             dev_pass_hash = get_hash_senha("126918dev#@")
             cursor.execute(
-                "INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", ('neto@dev.com', dev_pass_hash, 'dev'))
+                "INSERT INTO usuarios (username, password_hash, role, empresa_id) VALUES (?, ?, ?, ?)", ('neto@dev.com', dev_pass_hash, 'dev', 1))
 
         # --- FIXO: USUÁRIO DO COLEGA (Para não sumir nas atualizações) ---
         pass_hash_colega = get_hash_senha("784512")
@@ -339,40 +365,52 @@ def setup_usuarios():
         if cursor.fetchone():
             # Se já existe, ATUALIZA a senha (para corrigir caso esteja errada no banco)
             cursor.execute(
-                "UPDATE usuarios SET password_hash = ?, role = 'operador' WHERE username = 'rother'", (pass_hash_colega,))
+                "UPDATE usuarios SET password_hash = ?, role = 'operador', empresa_id = 1 WHERE username = 'rother'", (pass_hash_colega,))
         else:
             # Se não existe, CRIA
-            cursor.execute("INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)",
-                           ('rother', pass_hash_colega, 'operador'))
+            cursor.execute("INSERT INTO usuarios (username, password_hash, role, empresa_id) VALUES (?, ?, ?, ?)",
+                           ('rother', pass_hash_colega, 'operador', 1))
+
+        # --- MIGRAÇÃO DE DADOS EXISTENTES PARA A EMPRESA PADRÃO (ID 1) ---
+        tabelas_para_migrar = ['movimentacoes', 'cadastros', 'chat_protocolos', 'chat_mensagens', 'arquivos', 'historico_acoes']
+        for tabela in tabelas_para_migrar:
+            try:
+                cursor.execute(f"PRAGMA table_info({tabela})")
+                cols = [r[1] for r in cursor.fetchall()]
+                if 'empresa_id' not in cols:
+                    cursor.execute(f"ALTER TABLE {tabela} ADD COLUMN empresa_id INTEGER NOT NULL DEFAULT 1")
+            except sqlite3.OperationalError:
+                # Tabela pode não existir ainda, ignora o erro
+                pass
 
     # Exporta todos os usuários para o CSV para garantir sincronia
     exportar_usuarios_para_csv()
 
 
-def criar_usuario(username, password, role='operador'):
+def criar_usuario(username, password, role, empresa_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         try:
             hash_senha = get_hash_senha(password)
             cursor.execute(
-                "INSERT INTO usuarios (username, password_hash, role) VALUES (?, ?, ?)", (username, hash_senha, role))
+                "INSERT INTO usuarios (username, password_hash, role, empresa_id) VALUES (?, ?, ?, ?)", (username, hash_senha, role, empresa_id))
             # Salva no backup CSV (Excel)
             log_usuario_csv(username, password, role, "CRIADO")
             return {"status": "Usuário criado com sucesso!"}
         except sqlite3.IntegrityError:
-            return {"erro": "Nome de usuário já existe."}
+            return {"erro": "Nome de usuário já existe nesta empresa."}
 
 
-def listar_usuarios():
+def listar_usuarios(empresa_id):
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, username, role FROM usuarios WHERE username NOT IN ('admin', 'neto@dev.com') ORDER BY username")
+            "SELECT id, username, role FROM usuarios WHERE empresa_id = ? AND username NOT IN ('admin', 'neto@dev.com') ORDER BY username", (empresa_id,))
         return [dict(row) for row in cursor.fetchall()]
 
 
-def excluir_usuario(user_id):
+def excluir_usuario(user_id, empresa_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         # Proteção para não excluir o admin principal (id 1 ou nome admin)
@@ -382,17 +420,17 @@ def excluir_usuario(user_id):
         if user and user[0] == 'admin':
             return {"erro": "Não é possível excluir o superusuário admin."}
 
-        cursor.execute("DELETE FROM usuarios WHERE id = ?", (user_id,))
+        cursor.execute("DELETE FROM usuarios WHERE id = ? AND empresa_id = ?", (user_id, empresa_id))
         return {"status": "Usuário excluído."}
 
 
-def atualizar_usuario(user_id, username, password, role):
+def atualizar_usuario(user_id, username, password, role, empresa_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
         # Verifica se o username já existe para OUTRO usuário (evitar duplicatas)
         cursor.execute(
-            "SELECT id FROM usuarios WHERE username = ? AND id != ?", (username, user_id))
+            "SELECT id FROM usuarios WHERE username = ? AND id != ? AND empresa_id = ?", (username, user_id, empresa_id))
         if cursor.fetchone():
             return {"erro": "Nome de usuário já existe."}
 
@@ -400,14 +438,14 @@ def atualizar_usuario(user_id, username, password, role):
         if password and password.strip():
             hash_senha = get_hash_senha(password)
             cursor.execute("""
-                UPDATE usuarios SET username = ?, password_hash = ?, role = ? WHERE id = ?
-            """, (username, hash_senha, role, user_id))
+                UPDATE usuarios SET username = ?, password_hash = ?, role = ? WHERE id = ? AND empresa_id = ?
+            """, (username, hash_senha, role, user_id, empresa_id))
             log_usuario_csv(username, password, role, "ATUALIZADO")
         else:
             # Se não, atualiza apenas dados cadastrais, mantendo a senha antiga
             cursor.execute("""
-                UPDATE usuarios SET username = ?, role = ? WHERE id = ?
-            """, (username, role, user_id))
+                UPDATE usuarios SET username = ?, role = ? WHERE id = ? AND empresa_id = ?
+            """, (username, role, user_id, empresa_id))
             log_usuario_csv(username, "MANTIDA", role, "ATUALIZADO")
 
         if cursor.rowcount == 0:
@@ -432,12 +470,28 @@ def get_hash_senha(senha):
     return hashed.decode('utf-8')
 
 
-def get_usuario(username: str):
+def get_usuario(username: str, empresa_id: int):
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM usuarios WHERE username = ?", (username,))
+            "SELECT * FROM usuarios WHERE username = ? AND empresa_id = ?", (username, empresa_id))
+        return cursor.fetchone()
+
+def get_empresa_por_cnpj(cnpj: str):
+    """Busca uma empresa pelo CNPJ."""
+    with get_db_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM empresas WHERE cnpj = ?", (cnpj,))
+        return cursor.fetchone()
+
+def get_empresa_por_id(empresa_id: int):
+    """Busca uma empresa pelo ID (usado para login de admin/dev sem CNPJ)."""
+    with get_db_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM empresas WHERE id = ?", (empresa_id,))
         return cursor.fetchone()
 
 
@@ -462,54 +516,54 @@ def executar_sql_raw(query: str):
 # --- Funções do Chat (Refatoradas com Protocolo) ---
 
 
-def get_open_protocol_for_user(username):
+def get_open_protocol_for_user(username, empresa_id):
     """Encontra um protocolo aberto para um usuário específico."""
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM chat_protocolos WHERE usuario_cliente = ? AND status IN ('aberto', 'avaliando') ORDER BY id DESC LIMIT 1",
-            (username,)
+            "SELECT * FROM chat_protocolos WHERE usuario_cliente = ? AND empresa_id = ? AND status IN ('aberto', 'avaliando') ORDER BY id DESC LIMIT 1",
+            (username, empresa_id)
         )
         return cursor.fetchone()
 
 
-def get_protocol_by_id(protocol_id):
+def get_protocol_by_id(protocol_id, empresa_id):
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM chat_protocolos WHERE id = ?", (protocol_id,))
+            "SELECT * FROM chat_protocolos WHERE id = ? AND empresa_id = ?", (protocol_id, empresa_id))
         return cursor.fetchone()
 
 
-def get_messages_by_protocol(protocolo_id):
+def get_messages_by_protocol(protocolo_id, empresa_id):
     """Lista todas as mensagens de um protocolo específico."""
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM chat_mensagens WHERE protocolo_id = ? ORDER BY id ASC",
-            (protocolo_id,)
+            "SELECT * FROM chat_mensagens WHERE protocolo_id = ? AND empresa_id = ? ORDER BY id ASC",
+            (protocolo_id, empresa_id)
         )
         return [dict(row) for row in cursor.fetchall()]
 
 
-def save_chat_message(protocolo_id, usuario, texto):
+def save_chat_message(protocolo_id, usuario, texto, empresa_id):
     """Salva uma nova mensagem em um protocolo existente."""
     fuso = pytz.timezone('America/Sao_Paulo')
     data_hora = datetime.now(fuso).strftime("%d/%m %H:%M")
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO chat_mensagens (protocolo_id, usuario, texto, data_hora) VALUES (?, ?, ?, ?)",
-            (protocolo_id, usuario, texto, data_hora)
+            "INSERT INTO chat_mensagens (protocolo_id, usuario, texto, data_hora, empresa_id) VALUES (?, ?, ?, ?, ?)",
+            (protocolo_id, usuario, texto, data_hora, empresa_id)
         )
         conn.commit()
     return {"status": "Mensagem enviada", "protocolo_id": protocolo_id}
 
 
-def create_protocol_and_message(usuario, texto):
+def create_protocol_and_message(usuario, texto, empresa_id):
     """Cria um novo protocolo e adiciona a primeira mensagem."""
     fuso = pytz.timezone('America/Sao_Paulo')
     data_hora = datetime.now(fuso).strftime("%d/%m %H:%M")
@@ -518,15 +572,15 @@ def create_protocol_and_message(usuario, texto):
         # 1. Criar o protocolo
         assunto = texto[:50] + '...' if len(texto) > 50 else texto
         cursor.execute(
-            "INSERT INTO chat_protocolos (usuario_cliente, assunto, data_inicio, status) VALUES (?, ?, ?, 'aberto')",
-            (usuario, assunto, data_hora)
+            "INSERT INTO chat_protocolos (usuario_cliente, assunto, data_inicio, status, empresa_id) VALUES (?, ?, ?, 'aberto', ?)",
+            (usuario, assunto, data_hora, empresa_id)
         )
         protocolo_id = cursor.lastrowid
 
         # 2. Inserir a primeira mensagem
         cursor.execute(
-            "INSERT INTO chat_mensagens (protocolo_id, usuario, texto, data_hora) VALUES (?, ?, ?, ?)",
-            (protocolo_id, usuario, texto, data_hora)
+            "INSERT INTO chat_mensagens (protocolo_id, usuario, texto, data_hora, empresa_id) VALUES (?, ?, ?, ?, ?)",
+            (protocolo_id, usuario, texto, data_hora, empresa_id)
         )
         conn.commit()
     return {"status": "Protocolo criado", "protocolo_id": protocolo_id}
@@ -541,29 +595,29 @@ def list_protocols():
         return [dict(row) for row in cursor.fetchall()]
 
 
-def get_protocols_for_user_history(username):
+def get_protocols_for_user_history(username, empresa_id):
     """Lista todos os protocolos de um usuário (abertos e fechados)."""
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, assunto, data_inicio, status FROM chat_protocolos WHERE usuario_cliente = ? ORDER BY id DESC",
-            (username,)
+            "SELECT id, assunto, data_inicio, status FROM chat_protocolos WHERE usuario_cliente = ? AND empresa_id = ? ORDER BY id DESC",
+            (username, empresa_id)
         )
         return [dict(row) for row in cursor.fetchall()]
 
 
-def update_protocol_status(protocol_id, status):
+def update_protocol_status(protocol_id, status, empresa_id):
     """Atualiza o status de um protocolo (ex: 'avaliando', 'fechado')."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE chat_protocolos SET status = ? WHERE id = ?", (status, protocol_id))
+            "UPDATE chat_protocolos SET status = ? WHERE id = ? AND empresa_id = ?", (status, protocol_id, empresa_id))
         conn.commit()
     return {"status": "updated"}
 
 
-def close_protocols_bulk(protocol_ids):
+def close_protocols_bulk(protocol_ids, empresa_id):
     """Encerra múltiplos protocolos de uma vez (sem avaliação)."""
     if not protocol_ids:
         return {"count": 0}
@@ -571,8 +625,8 @@ def close_protocols_bulk(protocol_ids):
     with get_db_connection() as conn:
         cursor = conn.cursor()
         placeholders = ','.join('?' for _ in protocol_ids)
-        sql = f"UPDATE chat_protocolos SET status = 'fechado' WHERE id IN ({placeholders})"
-        cursor.execute(sql, protocol_ids)
+        sql = f"UPDATE chat_protocolos SET status = 'fechado' WHERE id IN ({placeholders}) AND empresa_id = ?"
+        cursor.execute(sql, protocol_ids + [empresa_id])
         conn.commit()
         return {"count": cursor.rowcount}
 
@@ -648,37 +702,37 @@ def limpar_historico_performance():
 
 # --- Funções de Histórico / Logs ---
 
-def salvar_arquivo_db(nome_original, caminho_salvo, tamanho, uploader):
+def salvar_arquivo_db(nome_original, caminho_salvo, tamanho, uploader, empresa_id):
     fuso = pytz.timezone('America/Sao_Paulo')
     data_upload = datetime.now(fuso).strftime("%d/%m/%Y %H:%M")
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO arquivos (nome_original, caminho_salvo, tamanho, data_upload, uploader)
-            VALUES (?, ?, ?, ?, ?)
-        """, (nome_original, caminho_salvo, tamanho, data_upload, uploader))
+            INSERT INTO arquivos (nome_original, caminho_salvo, tamanho, data_upload, uploader, empresa_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (nome_original, caminho_salvo, tamanho, data_upload, uploader, empresa_id))
     return {"status": "Arquivo salvo"}
 
-def listar_arquivos_db():
+def listar_arquivos_db(empresa_id):
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM arquivos ORDER BY id DESC")
+        cursor.execute("SELECT * FROM arquivos WHERE empresa_id = ? ORDER BY id DESC", (empresa_id,))
         return [dict(row) for row in cursor.fetchall()]
 
-def get_arquivo_por_id(arquivo_id):
+def get_arquivo_por_id(arquivo_id, empresa_id):
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM arquivos WHERE id = ?", (arquivo_id,))
+        cursor.execute("SELECT * FROM arquivos WHERE id = ? AND empresa_id = ?", (arquivo_id, empresa_id))
         return cursor.fetchone()
 
-def excluir_arquivo_db(arquivo_id):
+def excluir_arquivo_db(arquivo_id, empresa_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM arquivos WHERE id = ?", (arquivo_id,))
+        cursor.execute("DELETE FROM arquivos WHERE id = ? AND empresa_id = ?", (arquivo_id, empresa_id))
 
-def registrar_log(usuario, acao, detalhes=""):
+def registrar_log(usuario, acao, empresa_id, detalhes=""):
     """Registra uma ação no histórico."""
     fuso = pytz.timezone('America/Sao_Paulo')
     data_hora = datetime.now(fuso).strftime("%d/%m/%Y %H:%M:%S")
@@ -687,13 +741,13 @@ def registrar_log(usuario, acao, detalhes=""):
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO historico_acoes (usuario, acao, detalhes, data_hora)
-                VALUES (?, ?, ?, ?)
-            """, (usuario, acao, detalhes, data_hora))
+                INSERT INTO historico_acoes (usuario, acao, detalhes, data_hora, empresa_id)
+                VALUES (?, ?, ?, ?, ?)
+            """, (usuario, acao, detalhes, data_hora, empresa_id))
     except Exception as e:
         print(f"Erro ao salvar log: {e}")
 
-def listar_historico(usuario: Optional[str] = None):
+def listar_historico(empresa_id, usuario: Optional[str] = None):
     """Lista as últimas 100 ações do sistema, com filtro opcional por usuário."""
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
@@ -701,9 +755,11 @@ def listar_historico(usuario: Optional[str] = None):
         
         query = "SELECT * FROM historico_acoes"
         params = []
-        
+        query += " WHERE empresa_id = ?"
+        params.append(empresa_id)
+
         if usuario:
-            query += " WHERE usuario = ?"
+            query += " AND usuario = ?"
             params.append(usuario)
             
         query += " ORDER BY id DESC LIMIT 100"
@@ -711,14 +767,14 @@ def listar_historico(usuario: Optional[str] = None):
         cursor.execute(query, params)
         return [dict(row) for row in cursor.fetchall()]
 
-def listar_usuarios_do_historico():
+def listar_usuarios_do_historico(empresa_id):
     """Retorna uma lista única de usuários que possuem registros no histórico."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT usuario FROM historico_acoes ORDER BY usuario ASC")
+        cursor.execute("SELECT DISTINCT usuario FROM historico_acoes WHERE empresa_id = ? ORDER BY usuario ASC", (empresa_id,))
         return [row[0] for row in cursor.fetchall()]
 
-def gerar_excel_historico(usuario: Optional[str] = None):
+def gerar_excel_historico(empresa_id, usuario: Optional[str] = None):
     """Gera o caminho de um arquivo Excel (.xlsx) com o histórico, com filtro opcional."""
     if usuario:
         safe_usuario = "".join(c for c in usuario if c.isalnum() or c in ('-', '_')).rstrip()
@@ -733,8 +789,10 @@ def gerar_excel_historico(usuario: Optional[str] = None):
     with get_db_connection() as conn:
         query = "SELECT data_hora, usuario, acao, detalhes FROM historico_acoes"
         params = []
+        query += " WHERE empresa_id = ?"
+        params.append(empresa_id)
         if usuario:
-            query += " WHERE usuario = ?"
+            query += " AND usuario = ?"
             params.append(usuario)
         query += " ORDER BY id DESC"
         
@@ -820,7 +878,7 @@ def get_app_version():
         }
 
 
-def obter_estatisticas():
+def obter_estatisticas(empresa_id):
     """Retorna um resumo com os contadores usados na interface:
     - no_patio: veículos com saida IS NULL
     - sairam_hoje: veículos que tiveram saida na data de hoje
@@ -832,7 +890,7 @@ def obter_estatisticas():
     # No pátio
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT placa, tipo, entrada, saida FROM movimentacoes")
+        cursor.execute("SELECT placa, tipo, entrada, saida FROM movimentacoes WHERE empresa_id = ?", (empresa_id,))
         rows = cursor.fetchall()
 
         now = datetime.now()
@@ -997,3 +1055,30 @@ def get_system_health():
         "ram_usage": ram_usage,
         "disk_usage": disk_usage,
     }
+
+def criar_backup_sistema():
+    """Cria um arquivo ZIP com todo o código fonte e banco de dados."""
+    pasta_backups = "backups"
+    if not os.path.exists(pasta_backups):
+        os.makedirs(pasta_backups)
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    nome_zip = os.path.join(pasta_backups, f"backup_auto_{timestamp}.zip")
+
+    try:
+        with zipfile.ZipFile(nome_zip, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Percorre todos os arquivos da pasta atual
+            for root, dirs, files in os.walk("."):
+                # Ignorar pastas que não queremos no backup
+                if 'backups' in root or 'venv' in root or '.git' in root or '__pycache__' in root or 'static' in root:
+                    continue
+                
+                for file in files:
+                    # Salvar apenas arquivos relevantes (código, banco, configs)
+                    if file.endswith(('.py', '.html', '.css', '.js', '.db', '.json', '.csv', '.txt')):
+                        caminho_completo = os.path.join(root, file)
+                        zipf.write(caminho_completo, os.path.relpath(caminho_completo, "."))
+        
+        return {"status": "Backup criado com sucesso!", "arquivo": nome_zip}
+    except Exception as e:
+        return {"erro": f"Falha no backup: {str(e)}"}
